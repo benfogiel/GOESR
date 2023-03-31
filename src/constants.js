@@ -1,0 +1,76 @@
+// all constants are defined here
+
+const caduConstants = {
+    CADU_LEN: 2048 * 8, // bits
+    SYNC_LEN: 4 * 8, // bits
+    AOS_TRANSFER_FRAME_LEN: 2044 * 8, // bits
+    TRANSFER_FRAME_PRIMARY_HEADER_LEN: 6 * 8, // bits
+    MASTER_CHANNEL_ID_LEN: 10, // bits
+    TRANSFER_FRAME_VERSION_NUM_LEN: 2, // bits
+    SPACECRAFT_ID_LEN: 8, // bits
+    VIRTUAL_CHANNEL_ID_LEN: 6, // bits
+    VIRTUAL_CHANNEL_FRAME_COUNT_LEN: 24, // bits
+    SIGNALLING_FIELD_LEN: 8, // bits
+    REPLAY_FLAG_LEN: 1, // bit
+    VIRTUAL_CHANNEL_FRAME_COUNT_USAGE_FLAG_LEN: 1, // bit
+    SING_RSVD_SPARE_LEN: 2, // bits
+    VIRTUAL_CHANNEL_FRAME_COUNT_CYCLE_LEN: 4, // bits
+    TRANSFER_FRAME_DATA_FIELD_LEN: 2036 * 8, // bits
+    MPDU_HEADER_LEN: 2 * 8, // bits
+    MPDU_RSVD_SPARE_LEN: 5, // bits
+    FIRST_HEADER_POINTER_LEN: 11, // bits
+    MPDU_PACKET_ZONE_LEN: 2034 * 8, // bits
+    FRAME_ERROR_CONTROL_FIELD_LEN: 2 * 8, // bits
+    SYNC_VAL: "00011010110011111111110000011101",
+    RHCP_VAL: "000101",
+    SP_POINTER_OVERFLOW_VAL: "11111111111",
+    VR_CH_FRAME_CNT_MAX: "16777215",
+    REPLAY_FLAG_VAL: "0",
+    VR_CH_FRAME_CNT_USAGE_FLAG_VAL: "1",
+    RSVD_SPARE_VAL: "00",
+    VR_CH_FRAME_CNT_CYCLE_MAX: "15",
+};
+
+const spacePacketConstants = {
+    M_PDU_PACKET_LEN: 2034*8,
+    PRIMARY_HEADER_LEN: 6*8,
+    VERSION_NUM_LEN: 3,
+    TYPE_LEN: 1,
+    SECONDARY_HEADER_FLAG_LEN: 1,
+    APID_LEN: 11,
+    SEQUENCE_FLAGS_LEN: 2,
+    SEQUENCE_COUNT_LEN: 14,
+    DATA_LENGTH_LEN: 16,
+    SECONDARY_HEADER_LEN: 8*8,
+    DAYS_SINCE_EPOCH_LEN: 16,
+    MILLISECONDS_OF_DAY_LEN: 32,
+    GRB_VERSION_LEN: 5,
+    GRB_PAYLOAD_VARIANT_LEN: 5,
+    ASSEMBLER_ID_LEN: 2,
+    SYSTEM_ENV_LEN: 4,
+    VERSION_1_VAL: "000",
+    USER_DATA_FIELD_MAX_LEN: 16376*8, // 16376 bytes includes the CRC
+    CRC_LEN: 4*8,
+    GENERIC_PACKET_TYPE: "00000",
+};
+
+const genericDataConstants = {
+    COMPRESS_ALGO_LEN: 8, // bits
+    SEC_EPOCH_LEN: 32, // bits
+    MICRO_SEC_LEN: 32, // bits
+    RESERVED_LEN: 64, // bits
+    DATA_UNIT_SEQ_COUNT_LEN: 32, // bits
+};
+
+const apids = {
+    X_RAY_DATA_APID: "01110000011",
+    PROTON_LOW_DATA_APID: "10000010000",
+    PROTON_MED_HI_DATA_APID: "10000100001",
+}
+
+module.exports = {
+    caduConstants,
+    spacePacketConstants,
+    genericDataConstants,
+    apids,
+};
