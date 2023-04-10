@@ -136,7 +136,7 @@ const assembleSpacePackets = (hexPackets) => {
             while (numRemDataBits > 0) {
                 const frameCount = parseInt(packet.aosTransferFrame.primaryHeader.virtualChannelFrameCount, 2);
                 const nextFrameNum = (frameCount + 1) % 16777216;
-                const cdau = caduPackets[nextFrameNum];
+                const cadu = caduPackets[nextFrameNum];
                 if (!cadu) {
                     console.log("Next CADU does not exist");
                     break;
