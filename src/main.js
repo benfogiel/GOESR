@@ -1,5 +1,6 @@
 const {readHexFile} = require('./pcapParser');
-const assembleSpacePackets = require('./ingestor');
+const {assembleSpacePackets, decodeSpacePackets} = require('./ingestor');
+const {parseProtonMidHi} = require('./genericDataParser');
 
 const main = async () => {
     const hexPackets = await readHexFile('packets.csv')
@@ -8,8 +9,8 @@ const main = async () => {
             return;
         });
 
-    const spacePackets = assembleSpacePackets(hexPackets);
-    console.log(spacePackets);
+    const data = assembleSpacePackets(hexPackets);
+    console.log(data);
 }
 
 main();

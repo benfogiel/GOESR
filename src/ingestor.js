@@ -1,7 +1,12 @@
 const crc32 = require('crc/crc32');
 const parseCadu = require("./caduParser");
 const {parseSpacePacketHeaderSlice} = require("./spacePacketParser");
-const {parseGenericData} = require("./genericDataParser");
+const {
+    parseGenericData,
+    parseMidHiProton,
+    parseLowProton,
+    parseXRay,
+} = require("./genericDataParser");
 const {
     SYNC_VAL,
     RHCP_VAL,
@@ -91,8 +96,10 @@ const checkSum = (spacePacket) => {
     for (const field in spacePacket.secondaryHeader) {
         bitString += spacePacket.secondaryHeader[field];
     }
-    bitString += spacePacket.spaceData;
-    bitString += spacePacket.crc;
+    for (const field in spacePacket.spaceData.header) {
+        bitString += spacePacket.secondaryHeader[field];
+    }
+    bitString += spacePacket.spaceData.data;
     const byteArray = new Int8Array(Buffer.from(bitString, 'binary'));
     const crc = crc32(byteArray);
     return crc === parseInt(spacePacket.crc,2);
@@ -108,13 +115,28 @@ const assembleSpacePackets = (hexPackets) => {
     const recordSpacePacket = (spacePacket) => {
         switch (spacePacket.primaryHeader.apid) {
             case X_RAY_DATA_APID:
-                spacePackets.xRay.push(spacePacket);
+                try {
+                    spacePacket.spaceData.data = parseXRay(spacePacket.spaceData.data);
+                    spacePackets.xRay.push(spacePacket);
+                } catch (e) {
+                    console.log("Was not able to decode xRay data. Error: " + e);
+                }
                 break;
             case PROTON_LOW_DATA_APID:
-                spacePackets.protonLow.push(spacePacket);
+                try {
+                    spacePacket.spaceData.data = parseLowProton(spacePacket.spaceData.data);
+                    spacePackets.protonLow.push(spacePacket);
+                } catch (e) {
+                    console.log("Was not able to decode Low Proton data. Error: " + e);
+                }
                 break;
             case PROTON_MED_HI_DATA_APID:
-                spacePackets.protonMedHi.push(spacePacket);
+                try {
+                    spacePacket.spaceData.data = parseMidHiProton(spacePacket.spaceData.data);
+                    spacePackets.protonMedHi.push(spacePacket);
+                } catch (e) {
+                    console.log("Was not able to decode Low and High Proton data. Error: " + e);
+                }
                 break;
             default:
                 throw new Error("APID is not valid");
@@ -149,6 +171,9 @@ const assembleSpacePackets = (hexPackets) => {
                         console.log("Space packet data overlaps with the next header");
                         break;
                     }
+                } else {
+                    console.log("There exist two space packet info in the same CADU");
+                    break;
                 }
                 const caduPacketZone = cadu.aosTransferFrame.dataField.mPduPacketZone;
                 if (numRemDataBits > caduPacketZone.length) {
@@ -175,7 +200,7 @@ const assembleSpacePackets = (hexPackets) => {
         // separate the CRC from the the end of the space packet
         completeSpacePacket.crc = completeSpacePacket.spaceData.slice(completeSpacePacket.spaceData.length - CRC_LEN, completeSpacePacket.spaceData.length);
         completeSpacePacket.spaceData = completeSpacePacket.spaceData.slice(0, completeSpacePacket.spaceData.length - CRC_LEN);
-        
+        completeSpacePacket.spaceData = parseGenericData(completeSpacePacket.spaceData);
         // check the checksum
         // if (!checkSum(completeSpacePacket)) {
         //     console.log("Checksum is not correct");
@@ -184,10 +209,12 @@ const assembleSpacePackets = (hexPackets) => {
         //     completeSpacePacket.spaceData = parseGenericData(completeSpacePacket.spaceData);
         //     recordSpacePacket(completeSpacePacket);
         // }
-        completeSpacePacket.spaceData = parseGenericData(completeSpacePacket.spaceData);
         recordSpacePacket(completeSpacePacket);
     }
     return spacePackets;
 }
 
-module.exports = assembleSpacePackets;
+module.exports = {
+    assembleSpacePackets,
+    checkSum,
+}

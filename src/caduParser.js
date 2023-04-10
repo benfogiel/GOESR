@@ -29,7 +29,8 @@ const validCadu = (parsedCadu) => {
         throw new Error("Invalid virtual channel frame count");
     if (parsedCadu.aosTransferFrame.primaryHeader.signalingField.replayFlag !== REPLAY_FLAG_VAL)
         throw new Error("Invalid replay flag");
-    // if ( // it should be "1", but it is "0" in the test data, TO DO: revisit this
+    // TO DO: revisit this - it should be "1", but it is "0" in the test data, 
+    // if (
     //     parsedCadu.aosTransferFrame.primaryHeader.signalingField.virtualChannelFrameCountUsageFlag
     //     !== VR_CH_FRAME_CNT_USAGE_FLAG_VAL) 
     //     throw new Error("Invalid virtual channel frame count usage flag");

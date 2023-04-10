@@ -18,17 +18,31 @@ const {
     SYSTEM_ENV_LEN,
     USER_DATA_FIELD_MAX_LEN,
     VERSION_1_VAL,
+    TYPE_VAL,
+    SECONDARY_HEADER_FLAG_VAL,
+    SEQUENCE_COUNT_MAX,
+    GRB_VERSION_VAL,
 } = require('./constants').spacePacketConstants;
+
+const validateSpacePacketHeaders = (primaryHeader, secondaryHeader) => {
+    // check secondary header flag
+    if (primaryHeader.secondaryHeaderFlag !== "1") throw new Error("Secondary Header Flag should be 1 for all Space Packets");
+    if (primaryHeader.versionNum !== VERSION_1_VAL) throw new Error('Space Packet version Number is not 1');
+    if (primaryHeader.type !== TYPE_VAL) throw new Error('Space Packet type is not 0');
+    if (primaryHeader.secondaryHeaderFlag !== SECONDARY_HEADER_FLAG_VAL) throw new Error('Secondary Header Flag is not 1');
+    if (parseInt(primaryHeader.sequenceCount,2) > SEQUENCE_COUNT_MAX) throw new Error('Sequence Count is greater than the maximum allowed value');
+    if (secondaryHeader.grbVersion !== GRB_VERSION_VAL) throw new Error('GRB Version is not 0');
+}
 
 const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
     let binPointer = 0;
     const primaryHeader = parsePrimaryHeader(binarySpacePacket.slice(0, PRIMARY_HEADER_LEN));
     binPointer += PRIMARY_HEADER_LEN;
-    // check secondary header flag
-    if (primaryHeader.secondaryHeaderFlag !== "1") throw new Error("Secondary Header Flag should be 1 for all Space Packets");
     const secondaryHeader = parseSecondaryHeader(binarySpacePacket.slice(binPointer, binPointer + SECONDARY_HEADER_LEN));
     binPointer += SECONDARY_HEADER_LEN;
     const userData = binarySpacePacket.slice(binPointer, binarySpacePacket.length);
+
+    validateSpacePacketHeaders(primaryHeader, secondaryHeader);
 
     // check if the data length in the primary header matches the actual data length
     // dataLength is the User Data Length - Primary Header Length - 1 byte
@@ -54,11 +68,9 @@ const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
     };
 }
 
-
 const parsePrimaryHeader = (binaryPrimaryHeader) => {
     let binPointer = 0;
     const versionNum = binaryPrimaryHeader.slice(binPointer, binPointer + VERSION_NUM_LEN);
-    if (versionNum !== VERSION_1_VAL) throw new Error('Space Packet version Number is not 1');
     binPointer += VERSION_NUM_LEN;
     const type = binaryPrimaryHeader.slice(binPointer, binPointer + TYPE_LEN);
     binPointer += TYPE_LEN;
