@@ -24,6 +24,7 @@ const parseHeader = (spaceData) => {
     bitPointer += RESERVED_LEN;
     const data_unit_seq_count = spaceData.slice(bitPointer, bitPointer + DATA_UNIT_SEQ_COUNT_LEN);
     bitPointer += DATA_UNIT_SEQ_COUNT_LEN;
+    length = bitPointer;
 
     return {
         compress_algo,
@@ -31,6 +32,7 @@ const parseHeader = (spaceData) => {
         micro_sec,
         reserved,
         data_unit_seq_count,
+        length,
     };
 }
 
