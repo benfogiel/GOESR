@@ -1,25 +1,42 @@
-const crc32 = require('crc/crc32');
+const assert = require('assert');
+
 const parseCadu = require("./caduParser");
-const {parseSpacePacketHeaderSlice} = require("./spacePacketParser");
+const {parseSpacePacketHeaderSlice, appendRemBits} = require("./spacePacketParser");
 const {
     parseGenericData,
     parseMidHiProton,
     parseLowProton,
     parseXRay,
+    parseXRayMeta,
+    parseProtonLowMeta,
+    parseProtonMedHiMeta,
 } = require("./genericDataParser");
 const {
-    SYNC_VAL,
     RHCP_VAL,
     SP_POINTER_OVERFLOW_VAL,
-    SEQUENCE_COUNT_MAX,
-    CADU_FRAME_COUNT_MAX,
+    VR_CH_FRAME_CNT_MAX,
 } = require("./constants.js").caduConstants;
-const {CRC_LEN, GENERIC_PACKET_TYPE} = require("./constants.js").spacePacketConstants;
+const {
+    GENERIC_PACKET_TYPE,
+    SEQUENCE_COUNT_MAX
+} = require("./constants.js").spacePacketConstants;
 const {
     X_RAY_DATA_APID,
     PROTON_LOW_DATA_APID,
-    PROTON_MED_HI_DATA_APID
+    PROTON_MED_HI_DATA_APID,
+    X_RAY_META_APID,
+    PROTON_LOW_META_APID,
+    PROTON_MED_HI_META_APID,
 } = require("./constants.js").apids;
+
+const APIDS = [
+    X_RAY_DATA_APID,
+    PROTON_LOW_DATA_APID,
+    PROTON_MED_HI_DATA_APID,
+    X_RAY_META_APID,
+    PROTON_LOW_META_APID,
+    PROTON_MED_HI_META_APID,
+]
 
 function hexToBin(hexArray) {
     let binaryString = '';
@@ -34,35 +51,12 @@ function hexToBin(hexArray) {
 }
 
 const spacePacketFilter = (spacePacketHeaderSlice) => {
-    const accept = spacePacketHeaderSlice.primaryHeader.apid === X_RAY_DATA_APID
-        || spacePacketHeaderSlice.primaryHeader.apid === PROTON_LOW_DATA_APID
-        || spacePacketHeaderSlice.primaryHeader.apid === PROTON_MED_HI_DATA_APID;
-    if (!accept) return false;
+    if (!APIDS.includes(spacePacketHeaderSlice.primaryHeader.apid)) return false;
     // additional checks
     if (spacePacketHeaderSlice.secondaryHeader.grbPayloadVariant !== GENERIC_PACKET_TYPE) {
         throw new Error('Space Packet type is not 0 (Generic Packet)');
     }
-    return accept;
-}
-
-const checkSum = (spacePacket) => {
-    // compile all the bits into a single string
-    let bitString = "";
-    // iterate through the primary header
-    for (const field in spacePacket.primaryHeader) {
-        bitString += spacePacket.primaryHeader[field];
-    }
-    // iterate through the secondary header
-    for (const field in spacePacket.secondaryHeader) {
-        bitString += spacePacket.secondaryHeader[field];
-    }
-    for (const field in spacePacket.spaceData.header) {
-        bitString += spacePacket.secondaryHeader[field];
-    }
-    bitString += spacePacket.spaceData.data;
-    const byteArray = new Int8Array(Buffer.from(bitString, 'binary'));
-    const crc = crc32(byteArray);
-    return crc === parseInt(spacePacket.crc,2);
+    return true;
 }
 
 class SpacePackets {
@@ -79,114 +73,19 @@ class SpacePackets {
             segmented: {},
             complete: []
         };
+        this.protonLowMeta = {
+            segmented: {},
+            complete: []
+        };
+        this.protonMedHiMeta = {
+            segmented: {},
+            complete: []
+        };
+        this.xRayMeta = {
+            segmented: {},
+            complete: []
+        };
         this.cadus = {};
-    }
-
-    assembleSpacePacket(segments, storage) {
-        // remove each segment from the segmented storage
-        segments.forEach(segment => {
-            delete storage.segmented[segment.primaryHeader.sequenceCount];
-        });
-        const spacePacket = {
-            primaryHeader: segments[0].primaryHeader,
-            secondaryHeader: segments[0].secondaryHeader,
-            spaceData: segments.reduce((acc, segment) => {
-                return acc + segment.spaceData;
-            }, ""),
-        }
-        spacePacket.crc = spacePacket.spaceData.slice(spacePacket.spaceData.length - CRC_LEN, spacePacket.spaceData.length);
-        spacePacket.spaceData = spacePacket.spaceData.slice(0, spacePacket.spaceData.length - CRC_LEN);
-        spacePacket.spaceData = parseGenericData(spacePacket.spaceData);
-        switch (spacePacket.primaryHeader.apid) {
-            case X_RAY_DATA_APID:
-                spacePacket.spaceData.data = parseXRay(spacePacket.spaceData.data);
-                break;
-            case PROTON_LOW_DATA_APID:
-                spacePacket.spaceData.data = parseLowProton(spacePacket.spaceData.data);
-                break;
-            case PROTON_MED_HI_DATA_APID:
-                spacePacket.spaceData.data = parseMidHiProton(spacePacket.spaceData.data);
-                break;
-            default:
-                throw new Error("APID is not valid");
-        }
-        return spacePacket;
-    }
-
-    recordSpacePacket(spacePacket) {
-        let storage;
-        switch (spacePacket.primaryHeader.apid) {
-            case X_RAY_DATA_APID:
-                storage = this.xRay
-                break;
-            case PROTON_LOW_DATA_APID:
-                storage = this.protonLow
-                break;
-            case PROTON_MED_HI_DATA_APID:
-                storage = this.protonMedHi
-                break;
-            default:
-                throw new Error("APID is not valid");
-        }
-        const getProceedingSegments = (startingSegment) => {
-            // find the last segment of the space packet
-            let nextSeqCount = startingSegment.primaryHeader.sequenceCount;
-            let segments = [];
-            while (storage.segmented[nextSeqCount]) {
-                if (storage.segmented[nextSeqCount].primaryHeader.sequenceFlag === "10") {
-                    // this is the last segment
-                    return segments;
-                }
-                segments.push(storage.segmented[nextSeqCount]);
-                nextSeqCount = (nextSeqCount + 1) % (SEQUENCE_COUNT_MAX + 1);
-            }
-            return null;
-        }
-        const getPreviousSegments = (startingSegment) => {
-            // find the first segment of the space packet
-            let prevSeqCount = startingSegment.primaryHeader.sequenceCount;
-            let segments = [];
-            while (storage.segmented[prevSeqCount]) {
-                if (storage.segmented[prevSeqCount].primaryHeader.sequenceFlag === "01") {
-                    // this is the first segment
-                    return segments;
-                }
-                segments.unshift(storage.segmented[prevSeqCount]);
-                prevSeqCount = (prevSeqCount - 1) % (SEQUENCE_COUNT_MAX + 1);
-            }
-            return null;
-        }    
-        if (spacePacket.primaryHeader.sequenceFlag === "11") {
-            // space packet is unsegmented
-            storage.complete.push(this.assembleSpacePacket([spacePacket], storage));
-        } else if (spacePacket.primaryHeader.sequenceFlag === "01") {
-            // this is the first segment of a segmented space packet
-            storage.segmented[spacePacket.primaryHeader.sequenceCount] = spacePacket;
-            const proceedingSegments = getProceedingSegments(spacePacket);
-            if (proceedingSegments !== null) {
-                // we have the last segment, we can assemble the space packet
-                return storage.complete.push(this.assembleSpacePacket([spacePacket,...proceedingSegments], storage));
-            }
-        } else if (spacePacket.primaryHeader.sequenceFlag === "10") {
-            // this is the last segment of a segmented space packet
-            storage.segmented[spacePacket.primaryHeader.sequenceCount] = spacePacket;
-            const previousSegments = getPreviousSegments(spacePacket);
-            if (previousSegments !== null) {
-                // we have the first segment, we can assemble the space packet
-                return storage.complete.push(this.assembleSpacePacket([...previousSegments, spacePacket], storage));
-            }
-        } else if (spacePacket.primaryHeader.sequenceFlag === "00") {
-            // this is a middle segment of a segmented space packet
-            storage.segmented[spacePacket.primaryHeader.sequenceCount] = spacePacket;
-            const prevSegments = getPreviousSegments(spacePacket);
-            const nextSegments = getProceedingSegments(spacePacket);
-            if (prevSegments !== null && nextSegments !== null) {
-                // we have both the first and last segments, we can assemble the space packet
-                return storage.complete.push(this.assembleSpacePacket([...prevSegments, spacePacket,...nextSegments], storage));
-            }
-        } else {
-            throw new Error("Sequence flag is not valid");
-        }
     }
 
     recordCadus(hexPackets) {
@@ -195,12 +94,12 @@ class SpacePackets {
             const cadu = parseCadu(bitStreamBin);
             if (!cadu) {
                 // invalid cadu
-                return null;
+                continue;
             }
             const tfph = cadu.aosTransferFrame.primaryHeader;
             if (tfph.virtualChannelId !== RHCP_VAL) {
                 // we're only interested in RHCP
-                return null;
+                continue;
             }
 
             const caduFrame = parseInt(tfph.virtualChannelFrameCount, 2);
@@ -232,17 +131,158 @@ class SpacePackets {
                 // this is a space packet that we're interested in
                 if (spacePacketSlice.remBits !== 0) {
                     // look at the next cadu for the remainder of the space packet
-                    const nextCadu = this.cadus[(parseInt(tfph.virtualChannelFrameCount, 2) + 1) % CADU_FRAME_COUNT_MAX+1];
+                    const nextCadu = this.cadus[(parseInt(tfph.virtualChannelFrameCount, 2) + 1) % (VR_CH_FRAME_CNT_MAX+1)];
                     if (nextCadu) {
                         const nextMpduPacketZone = nextCadu.aosTransferFrame.dataField.mPduPacketZone;
-                        const nextSpacePacketSlice = parseSpacePacketDataSlice(nextMpduPacketZone.slice(0, spacePacketSlice.remBits));
-                        if (nextSpacePacketSlice !== null) {
-                            spacePacketSlice.spaceData.data = spacePacketSlice.spaceData.data.concat(nextSpacePacketSlice.spaceData.data);
+                        const remDataSlice = nextMpduPacketZone.slice(0, spacePacketSlice.remBits);
+                        if (remDataSlice !== null && remDataSlice.length > 0 
+                            && remDataSlice.length === spacePacketSlice.remBits
+                            && (
+                                nextCadu.aosTransferFrame.dataField.mPduHeader.firstHeaderPointer === SP_POINTER_OVERFLOW_VAL
+                                ||
+                                parseInt(nextCadu.aosTransferFrame.dataField.mPduHeader.firstHeaderPointer,2) === parseInt(spacePacketSlice.remBits/8)
+                            )
+                            ) {
+                            appendRemBits(spacePacketSlice, remDataSlice);
+                        } else {
+                            throw ("Issue occurred while appending remaining bits")
                         }
+                    } else {
+                        // TODO: handle this case
+                        // we're missing the next cadu
+                        console.log("Missing next cadu");
+                        return null;
                     }
                 }
                 this.recordSpacePacket(spacePacketSlice);
             }
+        }
+    }
+
+    assembleSpacePacket(segments, storage) {
+        // remove each segment from the segmented storage
+        segments.forEach(segment => {
+            delete storage.segmented[segment.primaryHeader.sequenceCount];
+        });
+        const spacePacket = {
+            primaryHeader: segments[0].primaryHeader,
+            secondaryHeader: segments[0].secondaryHeader,
+            spaceData: segments.reduce((acc, segment) => {
+                return acc + segment.spaceData;
+            }, ""),
+        }
+        spacePacket.spaceData = parseGenericData(spacePacket.spaceData);
+        switch (spacePacket.primaryHeader.apid) {
+            case X_RAY_DATA_APID:
+                spacePacket.spaceData.data = parseXRay(spacePacket.spaceData.data);
+                break;
+            case PROTON_LOW_DATA_APID:
+                spacePacket.spaceData.data = parseLowProton(spacePacket.spaceData.data);
+                break;
+            case PROTON_MED_HI_DATA_APID:
+                spacePacket.spaceData.data = parseMidHiProton(spacePacket.spaceData.data);
+                break;
+            case X_RAY_META_APID:
+                spacePacket.spaceData.data = parseXRayMeta(spacePacket.spaceData.data);
+                break;
+            case PROTON_LOW_META_APID:
+                spacePacket.spaceData.data = parseProtonLowMeta(spacePacket.spaceData.data);
+                break;
+            case PROTON_MED_HI_META_APID:
+                spacePacket.spaceData.data = parseProtonMedHiMeta(spacePacket.spaceData.data);
+                break;
+            default:
+                throw new Error("APID is not valid");
+        }
+        return spacePacket;
+    }
+
+    recordSpacePacket(spacePacket) {
+        let storage;
+        switch (spacePacket.primaryHeader.apid) {
+            case X_RAY_DATA_APID:
+                storage = this.xRay;
+                break;
+            case PROTON_LOW_DATA_APID:
+                storage = this.protonLow;
+                break;
+            case PROTON_MED_HI_DATA_APID:
+                storage = this.protonMedHi
+                break;
+            case X_RAY_META_APID:
+                storage = this.xRayMeta;
+                break;
+            case PROTON_LOW_META_APID:
+                storage = this.protonLowMeta;
+                break;
+            case PROTON_MED_HI_META_APID:
+                storage = this.protonMedHiMeta;
+                break;
+            default:
+                throw new Error("APID is not valid");
+        }
+        const getNextSegments = (startingSegment) => {
+            // find the last segment of the space packet
+            // startingSegment cannot be the last segment
+            assert(startingSegment.primaryHeader.sequenceFlag !== "10", "startingSegment cannot be the last segment");
+            let nextSeqCount = (startingSegment.primaryHeader.sequenceCount + 1) % (SEQUENCE_COUNT_MAX + 1);
+            let segments = [];
+            while (storage.segmented[nextSeqCount]) {
+                segments.push(storage.segmented[nextSeqCount]);
+                if (storage.segmented[nextSeqCount].primaryHeader.sequenceFlag === "10") {
+                    // this is the last segment
+                    return segments;
+                }
+                nextSeqCount = (nextSeqCount + 1) % (SEQUENCE_COUNT_MAX + 1);
+            }
+            return null;
+        }
+        const getPreviousSegments = (startingSegment) => {
+            // find the first segment of the space packet
+            // startingSegment cannot be the first segment
+            assert(startingSegment.primaryHeader.sequenceFlag !== "01", "startingSegment cannot be the first segment")
+            let prevSeqCount = (startingSegment.primaryHeader.sequenceCount - 1) % (SEQUENCE_COUNT_MAX + 1);
+            let segments = [];
+            while (storage.segmented[prevSeqCount]) {
+                segments.unshift(storage.segmented[prevSeqCount]);
+                if (storage.segmented[prevSeqCount].primaryHeader.sequenceFlag === "01") {
+                    // this is the first segment
+                    return segments;
+                }
+                prevSeqCount = (prevSeqCount - 1) % (SEQUENCE_COUNT_MAX + 1);
+            }
+            return null;
+        }    
+        if (spacePacket.primaryHeader.sequenceFlag === "11") {
+            // space packet is unsegmented
+            storage.complete.push(this.assembleSpacePacket([spacePacket], storage));
+        } else if (spacePacket.primaryHeader.sequenceFlag === "01") {
+            // this is the first segment of a segmented space packet
+            storage.segmented[spacePacket.primaryHeader.sequenceCount] = spacePacket;
+            const nextSegments = getNextSegments(spacePacket);
+            if (nextSegments !== null) {
+                // we have the last segment, we can assemble the space packet
+                return storage.complete.push(this.assembleSpacePacket([spacePacket,...nextSegments], storage));
+            }
+        } else if (spacePacket.primaryHeader.sequenceFlag === "10") {
+            // this is the last segment of a segmented space packet
+            storage.segmented[spacePacket.primaryHeader.sequenceCount] = spacePacket;
+            const previousSegments = getPreviousSegments(spacePacket);
+            if (previousSegments !== null) {
+                // we have the first segment, we can assemble the space packet
+                return storage.complete.push(this.assembleSpacePacket([...previousSegments, spacePacket], storage));
+            }
+        } else if (spacePacket.primaryHeader.sequenceFlag === "00") {
+            // this is a middle segment of a segmented space packet
+            storage.segmented[spacePacket.primaryHeader.sequenceCount] = spacePacket;
+            const prevSegments = getPreviousSegments(spacePacket);
+            const nextSegments = getNextSegments(spacePacket);
+            if (prevSegments !== null && nextSegments !== null) {
+                // we have both the first and last segments, we can assemble the space packet
+                return storage.complete.push(this.assembleSpacePacket([...prevSegments, spacePacket,...nextSegments], storage));
+            }
+        } else {
+            throw new Error("Sequence flag is not valid");
         }
     }
 }

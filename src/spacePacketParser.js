@@ -1,4 +1,7 @@
 // parses Space Packets
+const assert = require('assert');
+const crc32 = require('crc/crc32');
+
 const {
     PRIMARY_HEADER_LEN,
     SECONDARY_HEADER_LEN,
@@ -8,6 +11,7 @@ const {
     SECONDARY_HEADER_FLAG_VAL,
     SEQUENCE_COUNT_MAX,
     GRB_VERSION_VAL,
+    CRC_LEN,
 } = require('./constants').spacePacketConstants;
 const { primaryHeaderFields, secondaryHeaderFields } = require('./constants').spacePacketFields;
 const { parseBitFields } = require('./utils');
@@ -22,6 +26,7 @@ const validateSpacePacketHeaders = (primaryHeader, secondaryHeader) => {
 }
 
 const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
+    const binary = binarySpacePacket;
     let binPointer = 0;
     const primaryHeader = parsePrimaryHeader(binarySpacePacket.slice(0, PRIMARY_HEADER_LEN));
     binPointer += PRIMARY_HEADER_LEN;
@@ -46,13 +51,58 @@ const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
         remBits = dataLength - userData.length;
         spaceData = userData;
     }
-
-    return {
+    const spacePacket = {
         primaryHeader,
         secondaryHeader,
         spaceData,
-        remBits
-    };
+        remBits,
+        binary
+    }
+    if (remBits === 0) {
+        // we have a complete space packet, parse crc
+        parseCrc(spacePacket);
+    }
+
+    return spacePacket
+}
+
+const appendRemBits = (spacePacket, remBits) => {
+    assert(spacePacket.remBits <= remBits.length, "remBits length is less than the remaining bits in the space packet");
+    spacePacket.spaceData = spacePacket.spaceData.concat(remBits);
+    spacePacket.binary = spacePacket.binary.concat(remBits);
+    spacePacket.remBits = spacePacket.remBits - remBits.length;
+
+    if (spacePacket.remBits === 0) {
+        // we have a complete space packet, parse crc
+        parseCrc(spacePacket);
+    }
+
+    return spacePacket;
+}
+
+const parseCrc = (spacePacket) => {
+    assert(spacePacket.remBits === 0, "remBits is not 0");
+    spacePacket.crc = spacePacket.spaceData.slice(spacePacket.spaceData.length - CRC_LEN, spacePacket.spaceData.length);
+    spacePacket.spaceData = spacePacket.spaceData.slice(0, spacePacket.spaceData.length - CRC_LEN);
+
+    // check CRC
+    // TODO: CRC check is failing for all packets
+    // if (!checkSum(spacePacket)) {
+    //     // throw new Error("CRC check failed");
+    //     console.log("CRC check failed");
+    // } else {
+    //     console.log("It worked!");
+    // }
+
+    return spacePacket
+}
+
+const checkSum = (spacePacket) => {
+    // compile all the bits into a single string
+    let bitString = spacePacket.binary.slice(0, spacePacket.binary.length - CRC_LEN);
+    const byteArray = new Int8Array(Buffer.from(bitString, 'binary'));
+    const crc = crc32(byteArray);
+    return crc === parseInt(spacePacket.crc,2);
 }
 
 const parsePrimaryHeader = (binaryPrimaryHeader) => {
@@ -68,5 +118,6 @@ const parseSecondaryHeader = (binarySecondaryHeader) => {
 }
 
 module.exports = {
-    parseSpacePacketHeaderSlice
+    parseSpacePacketHeaderSlice,
+    appendRemBits
 }

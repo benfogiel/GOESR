@@ -6,31 +6,32 @@ const binaryStringToByteArray = (binaryString) => {
     return byteArray;
 };
   
-const readBytes = (buffer, byteOffset, size, dataType) => {
-    const view = new DataView(buffer);
-    let littleEndian = size > 4;
-  
+const readBytes = (buffer, byteOffset, size, dataType, littleEndian = true) => {
+    const slicedBuffer = buffer.slice(byteOffset, byteOffset + size);
+    const view = new DataView(slicedBuffer);
+
     switch (dataType) {
         case 'uint8':
-            return view.getUint8(byteOffset, littleEndian);
+            return view.getUint8(0, littleEndian);
         case 'uint16':
-            return view.getUint16(byteOffset, littleEndian);
+            return view.getUint16(0, littleEndian);
         case 'uint32':
-            return view.getUint32(byteOffset, littleEndian);
+            return view.getUint32(0, littleEndian);
         case 'uint64':
-            return view.getBigUint64(byteOffset, littleEndian);
+            return view.getBigUint64(0, littleEndian);
         case 'float':
-            return view.getFloat32(byteOffset, littleEndian);
+            return view.getFloat32(0, littleEndian);
         case 'float32':
-            return view.getFloat32(byteOffset, littleEndian);
+            return view.getFloat32(0, littleEndian);
         case 'float64':
-            return view.getFloat64(byteOffset, littleEndian);
+            return view.getFloat64(0, littleEndian);
         case 'double':
-            return view.getFloat64(byteOffset, littleEndian);
+            return view.getFloat64(0, littleEndian);
         default:
             throw new Error(`Unsupported data type: ${dataType}`);
     }
 };
+
 
 const readBits = (binaryString, bitOffset, size, dataType) => {
     switch (dataType) {
@@ -43,7 +44,7 @@ const readBits = (binaryString, bitOffset, size, dataType) => {
     }
 };
 
-const parseByteFields = (binaryString, dataFields) => {
+const parseByteFields = (binaryString, dataFields, littleEndian) => {
     const byteArray = binaryStringToByteArray(binaryString);
     const buffer = byteArray.buffer;
     const result = {};
@@ -52,7 +53,7 @@ const parseByteFields = (binaryString, dataFields) => {
     // if (result.length !== expectedByteLength) throw new Error(`Expected ${expectedByteLength} bytes, got ${result.length} bytes`);
   
     for (const field of dataFields) {
-        result[field.name] = readBytes(buffer, field.byteOffset, field.size, field.dataType);
+        result[field.name] = readBytes(buffer, field.byteOffset, field.size, field.dataType, littleEndian);
     }
   
     return result;

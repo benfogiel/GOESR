@@ -23,15 +23,27 @@ const parseGenericData = (spaceData) => {
 }
 
 const parseMidHiProton = (midHiProtonBinStr) => {
-    return parseByteFields(midHiProtonBinStr, midHiProtonDataFields);
+    return parseByteFields(midHiProtonBinStr, midHiProtonDataFields, littleEndian=true);
 };
 
 const parseLowProton = (lowProtonBinStr) => {
-    return parseByteFields(lowProtonBinStr, lowProtonDataFields);
+    return parseByteFields(lowProtonBinStr, lowProtonDataFields, littleEndian=true);
 };
 
 const parseXRay = (xRayBinStr) => {
-    return parseByteFields(xRayBinStr, xRayDataFields);
+    return parseByteFields(xRayBinStr, xRayDataFields, littleEndian=true);
+};
+
+const parseXRayMeta = (xRayMetaBinStr) => {
+    return xRayMetaBinStr;
+};
+
+const parseProtonLowMeta = (protonLowMetaBinStr) => {
+    return protonLowMetaBinStr;
+};
+
+const parseProtonMedHiMeta = (protonMidHiMetaBinStr) => {
+    return protonMidHiMetaBinStr;
 };
 
 module.exports = {
@@ -39,4 +51,7 @@ module.exports = {
     parseMidHiProton,
     parseLowProton,
     parseXRay,
+    parseXRayMeta,
+    parseProtonLowMeta,
+    parseProtonMedHiMeta
 };
