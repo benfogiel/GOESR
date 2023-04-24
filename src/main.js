@@ -2,7 +2,7 @@ const {readHexFile} = require('./pcapParser');
 const {SpacePackets} = require('./ingestor');
 
 const main = async () => {
-    const hexPackets = await readHexFile('packets.csv')
+    const hexPackets = await readHexFile('packets_large.csv')
         .catch((err) => {
             console.log(err);
             return;

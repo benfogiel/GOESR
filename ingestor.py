@@ -6,7 +6,7 @@ def pcap_to_bits(pcap_file):
     # create a PyShark capture object
     capture = pyshark.FileCapture(pcap_file, use_json=True, include_raw=True)
 
-    with open("packets.csv", "w", newline="") as f:
+    with open("packets_large.csv", "w", newline="") as f:
         writer = csv.writer(f)
         # iterate over each packet in the capture
         for packet in capture:
@@ -22,5 +22,5 @@ def pcap_to_bits(pcap_file):
 
 
 if __name__ == "__main__":
-    bit_streams = pcap_to_bits("GOESR.pcap")
+    pcap_to_bits("data/GOESR_larger.pcap")
 
