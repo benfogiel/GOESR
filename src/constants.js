@@ -59,6 +59,7 @@ const spacePacketConstants = {
 };
 
 const genericDataConstants = {
+    GENERIC_HEADER_LEN: 21*8, // bits
     COMPRESS_ALGO_LEN: 8, // bits
     SEC_EPOCH_LEN: 32, // bits
     MICRO_SEC_LEN: 32, // bits
@@ -67,10 +68,41 @@ const genericDataConstants = {
 };
 
 const apids = {
-    X_RAY_DATA_APID: "01110000011",
-    PROTON_LOW_DATA_APID: "10000010000",
-    PROTON_MED_HI_DATA_APID: "10000100001",
+    X_RAY_META_APID: 898,
+    X_RAY_DATA_APID: 899,
+    PROTON_LOW_META_APID: 1040,
+    PROTON_LOW_DATA_APID: 1041,
+    PROTON_MED_HI_META_APID: 1056,
+    PROTON_MED_HI_DATA_APID: 1057,
 }
+
+const spacePacketFields = {
+    primaryHeaderFields: [
+        { name: 'versionNum', dataType: 'bitString', size: 3, bitOffset: 0 },
+        { name: 'type', dataType: 'bitString', size: 1, bitOffset: 3},
+        { name: 'secondaryHeaderFlag', dataType: 'bitString', size: 1, bitOffset: 4},
+        { name: 'apid', dataType: 'integer', size: 11, bitOffset: 5},
+        { name: 'sequenceFlag', dataType: 'bitString', size: 2, bitOffset: 16},
+        { name: 'sequenceCount', dataType: 'integer', size: 14, bitOffset: 18},
+        { name: 'dataLength', dataType: 'integer', size: 16, bitOffset: 32},
+    ],
+    secondaryHeaderFields: [
+        { name: 'daysSinceEpoch', dataType: 'integer', size: 16, bitOffset: 0 },
+        { name: 'millisecondsOfDay', dataType: 'integer', size: 32, bitOffset: 16 },
+        { name: 'grbVersion', dataType: 'bitString', size: 5, bitOffset: 48 },
+        { name: 'grbPayloadVariant', dataType: 'bitString', size: 5, bitOffset: 53 },
+        { name: 'assemblerId', dataType: 'bitString', size: 2, bitOffset: 58 },
+        { name: 'systemEnv', dataType: 'bitString', size: 4, bitOffset: 60 },
+    ]
+}
+
+const genericPayloadFields = [
+    { name: 'compressAlgo', dataType: 'bitString', size: 8, bitOffset: 0 },
+    { name: 'secEpoch', dataType: 'integer', size: 32, bitOffset: 8 },
+    { name: 'microSec', dataType: 'integer', size: 32, bitOffset: 40 },
+    { name: 'reserved', dataType: 'bitString', size: 64, bitOffset: 72 },
+    { name: 'dataUnitSeqCount', dataType: 'integer', size: 32, bitOffset: 136 },
+];
 
 const midHiProtonDataFields = [
     { name: 'DiffElectronFluxesControl', dataType: 'uint64', size: 16, byteOffset: 0 },
@@ -220,6 +252,8 @@ module.exports = {
     spacePacketConstants,
     genericDataConstants,
     apids,
+    spacePacketFields,
+    genericPayloadFields,
     midHiProtonDataFields,
     lowProtonDataFields,
     xRayDataFields

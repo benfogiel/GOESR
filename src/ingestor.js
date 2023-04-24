@@ -10,7 +10,9 @@ const {
 const {
     SYNC_VAL,
     RHCP_VAL,
-    SP_POINTER_OVERFLOW_VAL
+    SP_POINTER_OVERFLOW_VAL,
+    SEQUENCE_COUNT_MAX,
+    CADU_FRAME_COUNT_MAX,
 } = require("./constants.js").caduConstants;
 const {CRC_LEN, GENERIC_PACKET_TYPE} = require("./constants.js").spacePacketConstants;
 const {
@@ -43,48 +45,6 @@ const spacePacketFilter = (spacePacketHeaderSlice) => {
     return accept;
 }
 
-function compilePackets(hexPackets) {
-    const caduPackets = {};
-    const headerPackets = [];
-
-    for (const bitStream of hexPackets) {
-        // convert hex string to binary string
-        const bitStreamBin = hexToBin(bitStream);
-        const cadu = parseCadu(bitStreamBin);
-        if (!cadu) {
-            // invalid cadu
-            continue;
-        }
-
-        const tfph = cadu.aosTransferFrame.primaryHeader;
-        if (tfph.virtualChannelId !== RHCP_VAL) {
-            // we're only interested in RHCP
-            continue;
-        }
-
-        const caduFrame = parseInt(tfph.virtualChannelFrameCount, 2);
-        caduPackets[caduFrame] = cadu;
-
-        const mpduHeader = cadu.aosTransferFrame.dataField.mPduHeader;
-        if (mpduHeader.firstHeaderPointer !== SP_POINTER_OVERFLOW_VAL) {
-            // there exists a space header within the packet data field
-            const mpduPacketZone = cadu.aosTransferFrame.dataField.mPduPacketZone;
-            const spaceHeaderOffset = parseInt(mpduHeader.firstHeaderPointer, 2) * 8; // number of offset bits
-            const spacePacketHeaderSlice = parseSpacePacketHeaderSlice(mpduPacketZone.slice(spaceHeaderOffset, mpduPacketZone.length));
-            if (spacePacketFilter(spacePacketHeaderSlice)) {
-                headerPackets.push({
-                    caduFrame: caduFrame,
-                    spacePacketHeaderSlice: spacePacketHeaderSlice
-                });
-            }
-        }
-    }
-    return {
-        caduPackets,
-        headerPackets
-    };
-}
-
 const checkSum = (spacePacket) => {
     // compile all the bits into a single string
     let bitString = "";
@@ -105,116 +65,188 @@ const checkSum = (spacePacket) => {
     return crc === parseInt(spacePacket.crc,2);
 }
 
-const assembleSpacePackets = (hexPackets) => {
-    const {caduPackets, headerPackets} = compilePackets(hexPackets);
-    const spacePackets = {
-        xRay: [],
-        protonLow: [],
-        protonMedHi: []
-    };
-    const recordSpacePacket = (spacePacket) => {
+class SpacePackets {
+    constructor() {
+        this.xRay = {
+            segmented: {},
+            complete: []
+        };
+        this.protonLow = {
+            segmented: {},
+            complete: []
+        };
+        this.protonMedHi = {
+            segmented: {},
+            complete: []
+        };
+        this.cadus = {};
+    }
+
+    assembleSpacePacket(segments, storage) {
+        // remove each segment from the segmented storage
+        segments.forEach(segment => {
+            delete storage.segmented[segment.primaryHeader.sequenceCount];
+        });
+        const spacePacket = {
+            primaryHeader: segments[0].primaryHeader,
+            secondaryHeader: segments[0].secondaryHeader,
+            spaceData: segments.reduce((acc, segment) => {
+                return acc + segment.spaceData;
+            }, ""),
+        }
+        spacePacket.crc = spacePacket.spaceData.slice(spacePacket.spaceData.length - CRC_LEN, spacePacket.spaceData.length);
+        spacePacket.spaceData = spacePacket.spaceData.slice(0, spacePacket.spaceData.length - CRC_LEN);
+        spacePacket.spaceData = parseGenericData(spacePacket.spaceData);
         switch (spacePacket.primaryHeader.apid) {
             case X_RAY_DATA_APID:
-                try {
-                    spacePacket.spaceData.data = parseXRay(spacePacket.spaceData.data);
-                    spacePackets.xRay.push(spacePacket);
-                } catch (e) {
-                    console.log("Was not able to decode xRay data. Error: " + e);
-                }
+                spacePacket.spaceData.data = parseXRay(spacePacket.spaceData.data);
                 break;
             case PROTON_LOW_DATA_APID:
-                try {
-                    spacePacket.spaceData.data = parseLowProton(spacePacket.spaceData.data);
-                    spacePackets.protonLow.push(spacePacket);
-                } catch (e) {
-                    console.log("Was not able to decode Low Proton data. Error: " + e);
-                }
+                spacePacket.spaceData.data = parseLowProton(spacePacket.spaceData.data);
                 break;
             case PROTON_MED_HI_DATA_APID:
-                try {
-                    spacePacket.spaceData.data = parseMidHiProton(spacePacket.spaceData.data);
-                    spacePackets.protonMedHi.push(spacePacket);
-                } catch (e) {
-                    console.log("Was not able to decode Low and High Proton data. Error: " + e);
-                }
+                spacePacket.spaceData.data = parseMidHiProton(spacePacket.spaceData.data);
                 break;
             default:
                 throw new Error("APID is not valid");
         }
+        return spacePacket;
     }
-    // iterate through the header packets
-    for (const headerPacket of headerPackets) {
-        let completeSpacePacket;
-        const spaceSlice = headerPacket.spacePacketHeaderSlice;
-        if (spaceSlice.numRemDataBits === 0) {
-            // this is the entire space packet
-            completeSpacePacket = spaceSlice;
-        } else {
-            // space packet is not entirely in the header packet
-            // find the next frame count
-            let numRemDataBits = spaceSlice.numRemDataBits;
-            let spacePacket = spaceSlice;
-            let packet = caduPackets[headerPacket.caduFrame];
-            while (numRemDataBits > 0) {
-                const frameCount = parseInt(packet.aosTransferFrame.primaryHeader.virtualChannelFrameCount, 2);
-                const nextFrameNum = (frameCount + 1) % 16777216;
-                const cadu = caduPackets[nextFrameNum];
-                if (!cadu) {
-                    console.log("Next CADU does not exist");
-                    break;
+
+    recordSpacePacket(spacePacket) {
+        let storage;
+        switch (spacePacket.primaryHeader.apid) {
+            case X_RAY_DATA_APID:
+                storage = this.xRay
+                break;
+            case PROTON_LOW_DATA_APID:
+                storage = this.protonLow
+                break;
+            case PROTON_MED_HI_DATA_APID:
+                storage = this.protonMedHi
+                break;
+            default:
+                throw new Error("APID is not valid");
+        }
+        const getProceedingSegments = (startingSegment) => {
+            // find the last segment of the space packet
+            let nextSeqCount = startingSegment.primaryHeader.sequenceCount;
+            let segments = [];
+            while (storage.segmented[nextSeqCount]) {
+                if (storage.segmented[nextSeqCount].primaryHeader.sequenceFlag === "10") {
+                    // this is the last segment
+                    return segments;
                 }
-                // check that First Header Pointer does not overlap with the previous space packet data
-                const headerPointer = cadu.aosTransferFrame.dataField.mPduHeader.firstHeaderPointer;
-                if (headerPointer !== SP_POINTER_OVERFLOW_VAL) {
-                    const headerPointerOffset = parseInt(headerPointer, 2) * 8;
-                    if (headerPointerOffset < numRemDataBits) {
-                        console.log("Space packet data overlaps with the next header");
-                        break;
-                    }
-                } else {
-                    console.log("There exist two space packet info in the same CADU");
-                    break;
-                }
-                const caduPacketZone = cadu.aosTransferFrame.dataField.mPduPacketZone;
-                if (numRemDataBits > caduPacketZone.length) {
-                    // we need to get the entire packet zone
-                    spacePacket.spaceData = spacePacket.spaceData.concat(caduPacketZone);
-                    numRemDataBits -= caduPacketZone.length;
-                } else {
-                    // we can finish the space packet with this packet
-                    spacePacket.spaceData = spacePacket.spaceData.concat(caduPacketZone.slice(0, numRemDataBits));
-                    numRemDataBits = 0;
-                    break;
-                }
-                packet = cadu;
+                segments.push(storage.segmented[nextSeqCount]);
+                nextSeqCount = (nextSeqCount + 1) % (SEQUENCE_COUNT_MAX + 1);
             }
-            if (numRemDataBits > 0) {
-                // we didn't get the entire space packet
-                console.log("was not able to get entire space packet");
-                continue;
-            } else if (numRemDataBits === 0) {
-                // we got the entire space packet
-                completeSpacePacket = spacePacket;
+            return null;
+        }
+        const getPreviousSegments = (startingSegment) => {
+            // find the first segment of the space packet
+            let prevSeqCount = startingSegment.primaryHeader.sequenceCount;
+            let segments = [];
+            while (storage.segmented[prevSeqCount]) {
+                if (storage.segmented[prevSeqCount].primaryHeader.sequenceFlag === "01") {
+                    // this is the first segment
+                    return segments;
+                }
+                segments.unshift(storage.segmented[prevSeqCount]);
+                prevSeqCount = (prevSeqCount - 1) % (SEQUENCE_COUNT_MAX + 1);
+            }
+            return null;
+        }    
+        if (spacePacket.primaryHeader.sequenceFlag === "11") {
+            // space packet is unsegmented
+            storage.complete.push(this.assembleSpacePacket([spacePacket], storage));
+        } else if (spacePacket.primaryHeader.sequenceFlag === "01") {
+            // this is the first segment of a segmented space packet
+            storage.segmented[spacePacket.primaryHeader.sequenceCount] = spacePacket;
+            const proceedingSegments = getProceedingSegments(spacePacket);
+            if (proceedingSegments !== null) {
+                // we have the last segment, we can assemble the space packet
+                return storage.complete.push(this.assembleSpacePacket([spacePacket,...proceedingSegments], storage));
+            }
+        } else if (spacePacket.primaryHeader.sequenceFlag === "10") {
+            // this is the last segment of a segmented space packet
+            storage.segmented[spacePacket.primaryHeader.sequenceCount] = spacePacket;
+            const previousSegments = getPreviousSegments(spacePacket);
+            if (previousSegments !== null) {
+                // we have the first segment, we can assemble the space packet
+                return storage.complete.push(this.assembleSpacePacket([...previousSegments, spacePacket], storage));
+            }
+        } else if (spacePacket.primaryHeader.sequenceFlag === "00") {
+            // this is a middle segment of a segmented space packet
+            storage.segmented[spacePacket.primaryHeader.sequenceCount] = spacePacket;
+            const prevSegments = getPreviousSegments(spacePacket);
+            const nextSegments = getProceedingSegments(spacePacket);
+            if (prevSegments !== null && nextSegments !== null) {
+                // we have both the first and last segments, we can assemble the space packet
+                return storage.complete.push(this.assembleSpacePacket([...prevSegments, spacePacket,...nextSegments], storage));
+            }
+        } else {
+            throw new Error("Sequence flag is not valid");
+        }
+    }
+
+    recordCadus(hexPackets) {
+        for (let i = 0; i < hexPackets.length; i++) {
+            const bitStreamBin = hexToBin(hexPackets[i]);
+            const cadu = parseCadu(bitStreamBin);
+            if (!cadu) {
+                // invalid cadu
+                return null;
+            }
+            const tfph = cadu.aosTransferFrame.primaryHeader;
+            if (tfph.virtualChannelId !== RHCP_VAL) {
+                // we're only interested in RHCP
+                return null;
+            }
+
+            const caduFrame = parseInt(tfph.virtualChannelFrameCount, 2);
+            this.cadus[caduFrame] = cadu;
+        }
+    }
+    
+    processPacket(hexPacket) {
+        // convert hex string to binary string
+        const bitStreamBin = hexToBin(hexPacket);
+        const cadu = parseCadu(bitStreamBin);
+        if (!cadu) {
+            // invalid cadu
+            return null;
+        }
+        const tfph = cadu.aosTransferFrame.primaryHeader;
+        if (tfph.virtualChannelId !== RHCP_VAL) {
+            // we're only interested in RHCP
+            return null;
+        }
+
+        const mpduHeader = cadu.aosTransferFrame.dataField.mPduHeader;
+        if (mpduHeader.firstHeaderPointer !== SP_POINTER_OVERFLOW_VAL) {
+            // there exists a space header within the packet data field
+            const mpduPacketZone = cadu.aosTransferFrame.dataField.mPduPacketZone;
+            const spaceHeaderOffset = parseInt(mpduHeader.firstHeaderPointer, 2) * 8; // number of offset bits
+            const spacePacketSlice = parseSpacePacketHeaderSlice(mpduPacketZone.slice(spaceHeaderOffset, mpduPacketZone.length));
+            if (spacePacketSlice !== null && spacePacketFilter(spacePacketSlice)) {
+                // this is a space packet that we're interested in
+                if (spacePacketSlice.remBits !== 0) {
+                    // look at the next cadu for the remainder of the space packet
+                    const nextCadu = this.cadus[(parseInt(tfph.virtualChannelFrameCount, 2) + 1) % CADU_FRAME_COUNT_MAX+1];
+                    if (nextCadu) {
+                        const nextMpduPacketZone = nextCadu.aosTransferFrame.dataField.mPduPacketZone;
+                        const nextSpacePacketSlice = parseSpacePacketDataSlice(nextMpduPacketZone.slice(0, spacePacketSlice.remBits));
+                        if (nextSpacePacketSlice !== null) {
+                            spacePacketSlice.spaceData.data = spacePacketSlice.spaceData.data.concat(nextSpacePacketSlice.spaceData.data);
+                        }
+                    }
+                }
+                this.recordSpacePacket(spacePacketSlice);
             }
         }
-        // separate the CRC from the the end of the space packet
-        completeSpacePacket.crc = completeSpacePacket.spaceData.slice(completeSpacePacket.spaceData.length - CRC_LEN, completeSpacePacket.spaceData.length);
-        completeSpacePacket.spaceData = completeSpacePacket.spaceData.slice(0, completeSpacePacket.spaceData.length - CRC_LEN);
-        completeSpacePacket.spaceData = parseGenericData(completeSpacePacket.spaceData);
-        // check the checksum
-        // if (!checkSum(completeSpacePacket)) {
-        //     console.log("Checksum is not correct");
-        // } else {
-        //     // this is generic data, parse the generic data
-        //     completeSpacePacket.spaceData = parseGenericData(completeSpacePacket.spaceData);
-        //     recordSpacePacket(completeSpacePacket);
-        // }
-        recordSpacePacket(completeSpacePacket);
     }
-    return spacePackets;
 }
 
 module.exports = {
-    assembleSpacePackets,
-    checkSum,
+    SpacePackets
 }
