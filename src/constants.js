@@ -29,6 +29,8 @@ const caduConstants = {
     VR_CH_FRAME_CNT_USAGE_FLAG_VAL: "1",
     RSVD_SPARE_VAL: "00",
     VR_CH_FRAME_CNT_CYCLE_MAX: 15,
+    PACKET_QUEUE_CAPACITY: 250,
+    CADU_REQUESTS_CAPACITY: 50,
 };
 
 const spacePacketConstants = {

@@ -8,7 +8,6 @@ const main = async () => {
             return;
         });
     const spacePacketIngestor = new SpacePacketIngestor();
-    spacePacketIngestor.recordCadus(hexPackets);
     for (let i = 0; i < hexPackets.length; i++) {
         const packet = hexPackets[i];
         spacePacketIngestor.processPacket(packet);
