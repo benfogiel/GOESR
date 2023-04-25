@@ -1,5 +1,6 @@
 const assert = require('assert');
 
+const {PacketPriorityQueue} = require("./utils")
 const parseCadu = require("./caduParser");
 const {parseSpacePacketHeaderSlice, appendRemBits} = require("./spacePacketParser");
 const {
@@ -11,6 +12,7 @@ const {
     parseProtonLowMeta,
     parseProtonMedHiMeta,
 } = require("./genericDataParser");
+const {genericDataConstants} = require("./constants.js");
 const {
     RHCP_VAL,
     SP_POINTER_OVERFLOW_VAL,
@@ -59,30 +61,31 @@ const spacePacketFilter = (spacePacketHeaderSlice) => {
     return true;
 }
 
-class SpacePackets {
+class SpacePacketIngestor {
+    
     constructor() {
         this.xRay = {
-            segmented: {},
+            segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
             complete: []
         };
         this.protonLow = {
-            segmented: {},
+            segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
             complete: []
         };
         this.protonMedHi = {
-            segmented: {},
+            segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
             complete: []
         };
         this.protonLowMeta = {
-            segmented: {},
+            segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
             complete: []
         };
         this.protonMedHiMeta = {
-            segmented: {},
+            segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
             complete: []
         };
         this.xRayMeta = {
-            segmented: {},
+            segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
             complete: []
         };
         this.cadus = {};
@@ -162,7 +165,7 @@ class SpacePackets {
     assembleSpacePacket(segments, storage) {
         // remove each segment from the segmented storage
         segments.forEach(segment => {
-            delete storage.segmented[segment.primaryHeader.sequenceCount];
+            delete storage.segmented.dequeue[segment.primaryHeader.sequenceCount];
         });
         const spacePacket = {
             primaryHeader: segments[0].primaryHeader,
@@ -225,15 +228,15 @@ class SpacePackets {
             // find the last segment of the space packet
             // startingSegment cannot be the last segment
             assert(startingSegment.primaryHeader.sequenceFlag !== "10", "startingSegment cannot be the last segment");
-            let nextSeqCount = (startingSegment.primaryHeader.sequenceCount + 1) % (SEQUENCE_COUNT_MAX + 1);
+            let nextPacket = storage.segmented.getPacket((startingSegment.primaryHeader.sequenceCount + 1) % (SEQUENCE_COUNT_MAX + 1))?.packet;
             let segments = [];
-            while (storage.segmented[nextSeqCount]) {
-                segments.push(storage.segmented[nextSeqCount]);
-                if (storage.segmented[nextSeqCount].primaryHeader.sequenceFlag === "10") {
+            while (nextPacket) {
+                segments.push(nextPacket);
+                if (nextPacket.primaryHeader.sequenceFlag === "10") {
                     // this is the last segment
                     return segments;
                 }
-                nextSeqCount = (nextSeqCount + 1) % (SEQUENCE_COUNT_MAX + 1);
+                nextPacket = storage.segmented.getPacket((nextPacket.primaryHeader.sequenceCount + 1) % (SEQUENCE_COUNT_MAX + 1))?.packet;
             }
             return null;
         }
@@ -241,15 +244,15 @@ class SpacePackets {
             // find the first segment of the space packet
             // startingSegment cannot be the first segment
             assert(startingSegment.primaryHeader.sequenceFlag !== "01", "startingSegment cannot be the first segment")
-            let prevSeqCount = (startingSegment.primaryHeader.sequenceCount - 1) % (SEQUENCE_COUNT_MAX + 1);
+            let prevPacket = storage.segmented.getPacket((startingSegment.primaryHeader.sequenceCount - 1) % (SEQUENCE_COUNT_MAX + 1))?.packet;
             let segments = [];
-            while (storage.segmented[prevSeqCount]) {
-                segments.unshift(storage.segmented[prevSeqCount]);
-                if (storage.segmented[prevSeqCount].primaryHeader.sequenceFlag === "01") {
+            while (prevPacket) {
+                segments.unshift(prevPacket);
+                if (prevPacket.primaryHeader.sequenceFlag === "01") {
                     // this is the first segment
                     return segments;
                 }
-                prevSeqCount = (prevSeqCount - 1) % (SEQUENCE_COUNT_MAX + 1);
+                prevPacket = storage.segmented.getPacket((prevPacket.primaryHeader.sequenceCount - 1) % (SEQUENCE_COUNT_MAX + 1))?.packet;
             }
             return null;
         }    
@@ -258,7 +261,7 @@ class SpacePackets {
             storage.complete.push(this.assembleSpacePacket([spacePacket], storage));
         } else if (spacePacket.primaryHeader.sequenceFlag === "01") {
             // this is the first segment of a segmented space packet
-            storage.segmented[spacePacket.primaryHeader.sequenceCount] = spacePacket;
+            storage.segmented.enqueue(spacePacket, spacePacket.primaryHeader.sequenceCount);
             const nextSegments = getNextSegments(spacePacket);
             if (nextSegments !== null) {
                 // we have the last segment, we can assemble the space packet
@@ -266,7 +269,7 @@ class SpacePackets {
             }
         } else if (spacePacket.primaryHeader.sequenceFlag === "10") {
             // this is the last segment of a segmented space packet
-            storage.segmented[spacePacket.primaryHeader.sequenceCount] = spacePacket;
+            storage.segmented.enqueue(spacePacket, spacePacket.primaryHeader.sequenceCount);
             const previousSegments = getPreviousSegments(spacePacket);
             if (previousSegments !== null) {
                 // we have the first segment, we can assemble the space packet
@@ -274,7 +277,7 @@ class SpacePackets {
             }
         } else if (spacePacket.primaryHeader.sequenceFlag === "00") {
             // this is a middle segment of a segmented space packet
-            storage.segmented[spacePacket.primaryHeader.sequenceCount] = spacePacket;
+            storage.segmented.enqueue(spacePacket, spacePacket.primaryHeader.sequenceCount);
             const prevSegments = getPreviousSegments(spacePacket);
             const nextSegments = getNextSegments(spacePacket);
             if (prevSegments !== null && nextSegments !== null) {
@@ -288,5 +291,5 @@ class SpacePackets {
 }
 
 module.exports = {
-    SpacePackets
+    SpacePacketIngestor
 }

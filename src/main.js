@@ -1,20 +1,20 @@
 const {readHexFile} = require('./pcapParser');
-const {SpacePackets} = require('./ingestor');
+const {SpacePacketIngestor} = require('./ingestor');
 
 const main = async () => {
-    const hexPackets = await readHexFile('packets_large.csv')
+    const hexPackets = await readHexFile('packets.csv')
         .catch((err) => {
             console.log(err);
             return;
         });
-    const spacePackets = new SpacePackets();
-    spacePackets.recordCadus(hexPackets);
+    const spacePacketIngestor = new SpacePacketIngestor();
+    spacePacketIngestor.recordCadus(hexPackets);
     for (let i = 0; i < hexPackets.length; i++) {
         const packet = hexPackets[i];
-        spacePackets.processPacket(packet);
+        spacePacketIngestor.processPacket(packet);
     }
 
-    console.log(spacePackets);
+    console.log(spacePacketIngestor);
 }
 
 main();

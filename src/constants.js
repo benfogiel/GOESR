@@ -65,6 +65,7 @@ const genericDataConstants = {
     MICRO_SEC_LEN: 32, // bits
     RESERVED_LEN: 64, // bits
     DATA_UNIT_SEQ_COUNT_LEN: 32, // bits
+    PACKET_QUEUE_CAPACITY: 100,
 };
 
 const apids = {
@@ -256,5 +257,5 @@ module.exports = {
     genericPayloadFields,
     midHiProtonDataFields,
     lowProtonDataFields,
-    xRayDataFields
+    xRayDataFields,
 };
