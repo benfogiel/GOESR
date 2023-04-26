@@ -1,6 +1,5 @@
 const dgram = require('dgram');
 const {readHexFile} = require('./pcapParser');
-const {SpacePacketIngestor} = require('./ingestor');
 
 const main = async () => {
     const hexPackets = await readHexFile('packets.csv')
@@ -14,13 +13,16 @@ const main = async () => {
     for (let i = 0; i < hexPackets.length; i++) {
         const packet = hexPackets[i];
 
-        server.send(packet, 0, packet.length, 50020, 'example.com', (err) => {
+        const buffer = Buffer.from(packet.join(''), 'hex');
+        server.send(buffer, 0, buffer.length, 50020, 'localhost', (err) => {
             if (err) {
                 console.log(err);
             } else {
                 console.log(`Packet ${i+1} sent successfully.`);
             }
         });
+        // sleep for 7 ms
+        await new Promise((resolve) => setTimeout(resolve, 7));
     }
 }
 
