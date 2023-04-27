@@ -80,6 +80,62 @@ export const apids = {
     SOLAR_GALACTIC_PROTON_APID: 1073
 };
 
+export const caduFields = {
+    sync: {
+        fields: [{name: "sync", size: 32, bitOffset: 0}],
+        size: 32, bitOffset: 0,   
+    },
+    aosTransFrame: {
+        fields: [
+            {transFramePrimaryHeader: {
+                fields: [
+                    {masterChannelId: {
+                        fields: [
+                            {name: "transFrameVersionNum", size: 2, bitOffset: 0},
+                            {name: "spacecraftId", size: 8, bitOffset: 2},
+                        ],
+                        size: 10, bitOffset: 0}
+                    },
+                    {name: "virtualChannelId", size: 6, bitOffset: 10},
+                    {name: "virtualChannelFrameCount", size: 24, bitOffset: 16},
+                    {signalingField: {
+                        fields: [
+                            {name: "replayFlag", size: 1, bitOffset: 0},
+                            {name: "virtualChannelFrameCountUsageFlag", size: 1, bitOffset: 1},
+                            {name: "singRsvdSpare", size: 2, bitOffset: 2},
+                            {name: "virtualChannelFrameCountCycle", size: 4, bitOffset: 4},
+                        ], name: "signalingField", size: 8, bitOffset: 40}
+                    },
+                ],
+                size: 48, bitOffset: 0}
+            },
+            {transFrameDataField: {
+                fields: [
+                    {mpduHeader: {
+                        fields: [
+                            {name: "rsvdSpare", size: 5, bitOffset: 0},
+                            {name: "firstHeaderPointer", size: 11, bitOffset: 5},
+                        ], 
+                        size: 16, bitOffset: 0}},
+                    {mpduPacketZone: {
+                        fields: [
+                            {name: "mpduPacketZone", size: 2034*8, bitOffset: 0},
+                        ],
+                        size: 2034*8, bitOffset: 16}},
+                ],
+                size: 2036*8, bitOffset: 48}
+            },
+            {frameErrorControlField: {
+                fields: [
+                    {name: "frameErrorControlField", size: 16, bitOffset: 0},
+                ],
+                size: 16, bitOffset: 2042*8}
+            },
+        ], 
+        size: 2044*8, bitOffset: 32
+    }
+}
+
 export const spacePacketFields = {
     primaryHeaderFields: [
         {name: "versionNum", dataType: "bitString", size: 3, bitOffset: 0},
