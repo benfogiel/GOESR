@@ -38,7 +38,7 @@ export const apids = {
     PROTON_LOW_DATA_APID: 1041,
     PROTON_MED_HI_META_APID: 1056,
     PROTON_MED_HI_DATA_APID: 1057,
-    SOLAR_GALACTIC_PROTON_APID: 1073
+    SOLAR_GALACTIC_PROTON_APID: 1073,
 };
 
 export const caduFields = [
@@ -49,42 +49,53 @@ export const caduFields = [
                 fields: [
                     {masterChannelId: {
                         fields: [
-                            {name: "transferFrameVersionNumber", dataType: "bitString", size: 2, bitOffset: 0},
-                            {name: "spacecraftId", dataType: "bitString", size: 8, bitOffset: 2},
+                            {name: "transferFrameVersionNumber",
+                                dataType: "bitString", size: 2, bitOffset: 0},
+                            {name: "spacecraftId",
+                                dataType: "bitString", size: 8, bitOffset: 2},
                         ],
-                        size: 10, bitOffset: 0}
+                        size: 10, bitOffset: 0},
                     },
-                    {name: "virtualChannelId", dataType: "bitString", size: 6, bitOffset: 10},
-                    {name: "virtualChannelFrameCount", dataType: "integer", size: 24, bitOffset: 16},
+                    {name: "virtualChannelId", dataType: "bitString",
+                        size: 6, bitOffset: 10},
+                    {name: "virtualChannelFrameCount", dataType: "integer",
+                        size: 24, bitOffset: 16},
                     {signalingField: {
                         fields: [
-                            {name: "replayFlag", dataType: "bitString", size: 1, bitOffset: 0},
-                            {name: "virtualChannelFrameCountUsageFlag", dataType: "bitString", size: 1, bitOffset: 1},
-                            {name: "rsvdSpare", dataType: "bitString", size: 2, bitOffset: 2},
-                            {name: "virtualChannelFrameCountCycle", dataType: "integer", size: 4, bitOffset: 4},
-                        ], 
-                        size: 8, bitOffset: 40}
+                            {name: "replayFlag",
+                                dataType: "bitString", size: 1, bitOffset: 0},
+                            {name: "virtualChannelFrameCountUsageFlag",
+                                dataType: "bitString", size: 1, bitOffset: 1},
+                            {name: "rsvdSpare",
+                                dataType: "bitString", size: 2, bitOffset: 2},
+                            {name: "virtualChannelFrameCountCycle",
+                                dataType: "integer", size: 4, bitOffset: 4},
+                        ],
+                        size: 8, bitOffset: 40},
                     },
                 ],
-                size: 48, bitOffset: 0}
+                size: 48, bitOffset: 0},
             },
             {dataField: {
                 fields: [
                     {mPduHeader: {
                         fields: [
-                            {name: "rsvdSpare", dataType: "bitString", size: 5, bitOffset: 0},
-                            {name: "firstHeaderPointer", dataType: "bitString", size: 11, bitOffset: 5},
-                        ], 
+                            {name: "rsvdSpare",
+                                dataType: "bitString", size: 5, bitOffset: 0},
+                            {name: "firstHeaderPointer",
+                                dataType: "bitString", size: 11, bitOffset: 5},
+                        ],
                         size: 16, bitOffset: 0}},
-                    {name: "mPduPacketZone", dataType: "bitString", size: 2034*8, bitOffset: 16},
+                    {name: "mPduPacketZone",
+                        dataType: "bitString", size: 2034*8, bitOffset: 16},
                 ],
-                size: 2036*8, bitOffset: 48}
+                size: 2036*8, bitOffset: 48},
             },
             {name: "frameErrorControlField", dataType: "bitString", size: 16, bitOffset: 2042*8},
-        ], 
-        size: 2044*8, bitOffset: 32}
-    }
-]
+        ],
+        size: 2044*8, bitOffset: 32},
+    },
+];
 
 export const spacePacketFields = {
     primaryHeaderFields: [
@@ -164,18 +175,27 @@ export const midHiProtonDataFields = [
 ];
 
 export const lowProtonDataFields = [
-    {name: "DiffElectronFluxesControlFields", dataType: "uint64", size: 16, byteOffset: 0},
+    {name: "DiffElectronFluxesControlFields",
+        dataType: "uint64", size: 16, byteOffset: 0},
     {name: "DiffElectronFluxes", dataType: "float", size: 840, byteOffset: 16},
-    {name: "DiffElectronFluxDQFsControlFields", dataType: "uint64", size: 16, byteOffset: 856},
-    {name: "DiffElectronFluxDQFs", dataType: "uint8", size: 210, byteOffset: 872},
-    {name: "DiffIonFluxesControlFields", dataType: "uint64", size: 16, byteOffset: 1082},
+    {name: "DiffElectronFluxDQFsControlFields",
+        dataType: "uint64", size: 16, byteOffset: 856},
+    {name: "DiffElectronFluxDQFs",
+        dataType: "uint8", size: 210, byteOffset: 872},
+    {name: "DiffIonFluxesControlFields",
+        dataType: "uint64", size: 16, byteOffset: 1082},
     {name: "DiffIonFluxes", dataType: "float", size: 840, byteOffset: 1098},
-    {name: "DiffIonFluxDQFsControlFields", dataType: "uint64", size: 16, byteOffset: 1938},
-    {name: "DiffIonFluxDQFs", dataType: "uint8", size: 210, byteOffset: 1954},
-    {name: "DiffElectronUncertaintiesControlFields", dataType: "uint64", size: 16, byteOffset: 2164},
+    {name: "DiffIonFluxDQFsControlFields",
+        dataType: "uint64", size: 16, byteOffset: 1938},
+    {name: "DiffIonFluxDQFs", dataType: "uint8",
+        size: 210, byteOffset: 1954},
+    {name: "DiffElectronUncertaintiesControlFields",
+        dataType: "uint64", size: 16, byteOffset: 2164},
     {name: "DiffElectronUncertainties", dataType: "float", size: 840, byteOffset: 2180},
-    {name: "DiffIonUncertaintiesControlFields", dataType: "uint64", size: 16, byteOffset: 3020},
-    {name: "DiffIonUncertainties", dataType: "float", size: 840, byteOffset: 3036},
+    {name: "DiffIonUncertaintiesControlFields",
+        dataType: "uint64", size: 16, byteOffset: 3020},
+    {name: "DiffIonUncertainties",
+        dataType: "float", size: 840, byteOffset: 3036},
     {name: "L1a_EngData_Flag", dataType: "uint8", size: 1, byteOffset: 3876},
     {name: "L1a_IonData_Flag", dataType: "uint8", size: 1, byteOffset: 3877},
     {name: "L1a_EleData_Flag", dataType: "uint8", size: 1, byteOffset: 3878},
@@ -260,25 +280,29 @@ export const xRayDataFields = [
 export const solarGalacticProtonDataFields = [
     {name: "T1_DifferentialProtonFluxesControl", dataType: "uint64", size: 16, byteOffset: 0},
     {name: "T1_DifferentialProtonFluxes", dataType: "float32Mtx2by6", size: 48, byteOffset: 16},
-    {name: "T1_DifferentialProtonFluxUncertaintiesControl", dataType: "uint64", size: 16, byteOffset: 64},
+    {name: "T1_DifferentialProtonFluxUncertaintiesControl",
+        dataType: "uint64", size: 16, byteOffset: 64},
     {name: "T1_DifferentialProtonFluxUncertainties", dataType: "float", size: 48, byteOffset: 80},
     {name: "T1_DifferentialProtonFluxDQFsControl", dataType: "uint64", size: 16, byteOffset: 128},
     {name: "T1_DifferentialProtonFluxDQFs", dataType: "uint8", size: 12, byteOffset: 144},
     {name: "T2_DifferentialProtonFluxesControl", dataType: "uint64", size: 16, byteOffset: 156},
     {name: "T2_DifferentialProtonFluxes", dataType: "float32Mtx2by2", size: 16, byteOffset: 172},
-    {name: "T2_DifferentialProtonFluxUncertaintiesControl", dataType: "uint64", size: 16, byteOffset: 188},
+    {name: "T2_DifferentialProtonFluxUncertaintiesControl",
+        dataType: "uint64", size: 16, byteOffset: 188},
     {name: "T2_DifferentialProtonFluxUncertainties", dataType: "float", size: 16, byteOffset: 204},
     {name: "T2_DifferentialProtonFluxDQFsControl", dataType: "uint64", size: 16, byteOffset: 220},
     {name: "T2_DifferentialProtonFluxDQFs", dataType: "uint8", size: 4, byteOffset: 236},
     {name: "T3_DifferentialProtonFluxesControl", dataType: "uint64", size: 16, byteOffset: 240},
     {name: "T3_DifferentialProtonFluxes", dataType: "float32Mtx2by5", size: 40, byteOffset: 256},
-    {name: "T3_DifferentialProtonFluxUncertaintiesControl", dataType: "uint64", size: 16, byteOffset: 296},
+    {name: "T3_DifferentialProtonFluxUncertaintiesControl",
+        dataType: "uint64", size: 16, byteOffset: 296},
     {name: "T3_DifferentialProtonFluxUncertainties", dataType: "float", size: 40, byteOffset: 312},
     {name: "T3_DifferentialProtonFluxDQFsControl", dataType: "uint64", size: 16, byteOffset: 352},
     {name: "T3_DifferentialProtonFluxDQFs", dataType: "uint8", size: 10, byteOffset: 368},
     {name: "T3P11_IntegralProtonFluxControl", dataType: "uint64", size: 8, byteOffset: 378},
     {name: "T3P11_IntegralProtonFlux", dataType: "float", size: 8, byteOffset: 386},
-    {name: "T3P11_IntegralProtonFluxUncertaintiesControl", dataType: "uint64", size: 8, byteOffset: 394},
+    {name: "T3P11_IntegralProtonFluxUncertaintiesControl",
+        dataType: "uint64", size: 8, byteOffset: 394},
     {name: "T3P11_IntegralProtonFluxUncertainties", dataType: "float", size: 16, byteOffset: 402},
     {name: "T3P11_IntegralProtonFluxDQFs_control", dataType: "uint64", size: 8, byteOffset: 418},
     {name: "T3P11_IntegralProtonFluxDQFs", dataType: "uint8", size: 2, byteOffset: 426},
@@ -311,5 +335,5 @@ export const solarGalacticProtonDataFields = [
     {name: "sgps_telemetry_time_control", dataType: "uint64", size: 8, byteOffset: 571},
     {name: "sgps_telemetry_time", dataType: "double", size: 16, byteOffset: 579},
     {name: "sgps_sensor_temperature_control", dataType: "uint64", size: 16, byteOffset: 595},
-    {name: "sgps_sensor_temperature", dataType: "float", size: 32, byteOffset: 611}
+    {name: "sgps_sensor_temperature", dataType: "float", size: 32, byteOffset: 611},
 ];

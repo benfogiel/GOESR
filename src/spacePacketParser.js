@@ -19,11 +19,21 @@ const {
 
 const validateSpacePacketHeaders = (primaryHeader, secondaryHeader) => {
     // check secondary header flag
-    if (primaryHeader.versionNum !== VERSION_1_VAL) throw new Error("Space Packet version Number is not 1");
-    if (primaryHeader.type !== TYPE_VAL) throw new Error("Space Packet type is not 0");
-    if (primaryHeader.secondaryHeaderFlag !== SECONDARY_HEADER_FLAG_VAL) throw new Error("Secondary Header Flag should be 1 for all Space Packets");
-    if (primaryHeader.sequenceCount > SEQUENCE_COUNT_MAX) throw new Error("Sequence Count is greater than the maximum allowed value");
-    if (secondaryHeader.grbVersion !== GRB_VERSION_VAL) throw new Error("GRB Version is not 0");
+    if (primaryHeader.versionNum !== VERSION_1_VAL) {
+        throw new Error("Space Packet version Number is not 1");
+    }
+    if (primaryHeader.type !== TYPE_VAL) {
+        throw new Error("Space Packet type is not 0");
+    }
+    if (primaryHeader.secondaryHeaderFlag !== SECONDARY_HEADER_FLAG_VAL) {
+        throw new Error("Secondary Header Flag should be 1 for all Space Packets");
+    }
+    if (primaryHeader.sequenceCount > SEQUENCE_COUNT_MAX) {
+        throw new Error("Sequence Count is greater than the maximum allowed value");
+    }
+    if (secondaryHeader.grbVersion !== GRB_VERSION_VAL) {
+        throw new Error("GRB Version is not 0");
+    }
 };
 
 export const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
@@ -31,7 +41,9 @@ export const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
     let binPointer = 0;
     const primaryHeader = parsePrimaryHeader(binarySpacePacket.slice(0, PRIMARY_HEADER_LEN));
     binPointer += PRIMARY_HEADER_LEN;
-    const secondaryHeader = parseSecondaryHeader(binarySpacePacket.slice(binPointer, binPointer + SECONDARY_HEADER_LEN));
+    const secondaryHeader = parseSecondaryHeader(
+        binarySpacePacket.slice(binPointer, binPointer + SECONDARY_HEADER_LEN),
+    );
     binPointer += SECONDARY_HEADER_LEN;
     const userData = binarySpacePacket.slice(binPointer, binarySpacePacket.length);
 
@@ -40,7 +52,9 @@ export const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
     // check if the data length in the primary header matches the actual data length
     // dataLength = User Data Length - Primary Header Length - 1 byte
     const dataLength = primaryHeader.dataLength*8-SECONDARY_HEADER_LEN+8; // in bits
-    if (dataLength > USER_DATA_FIELD_MAX_LEN) throw new Error("Data Length is greater than the maximum allowed length");
+    if (dataLength > USER_DATA_FIELD_MAX_LEN) {
+        throw new Error("Data Length is greater than the maximum allowed length");
+    }
     let spaceData;
     let remBits = 0;
     if (userData.length >= dataLength) {
@@ -68,7 +82,8 @@ export const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
 };
 
 export const appendRemBits = (spacePacket, remBits) => {
-    assert(spacePacket.remBits <= remBits.length, "remBits length is less than the remaining bits in the space packet");
+    assert(spacePacket.remBits <= remBits.length,
+        "remBits length is less than the remaining bits in the space packet");
     spacePacket.spaceData = spacePacket.spaceData.concat(remBits);
     spacePacket.binary = spacePacket.binary.concat(remBits);
     spacePacket.remBits = spacePacket.remBits - remBits.length;
@@ -83,8 +98,12 @@ export const appendRemBits = (spacePacket, remBits) => {
 
 const parseCrc = (spacePacket) => {
     assert(spacePacket.remBits === 0, "remBits is not 0");
-    spacePacket.crc = spacePacket.spaceData.slice(spacePacket.spaceData.length - CRC_LEN, spacePacket.spaceData.length);
-    spacePacket.spaceData = spacePacket.spaceData.slice(0, spacePacket.spaceData.length - CRC_LEN);
+    spacePacket.crc = spacePacket.spaceData.slice(
+        spacePacket.spaceData.length - CRC_LEN, spacePacket.spaceData.length,
+    );
+    spacePacket.spaceData = spacePacket.spaceData.slice(
+        0, spacePacket.spaceData.length - CRC_LEN,
+    );
 
     // check CRC
     // TODO: CRC check is failing for all packets
@@ -109,12 +128,16 @@ const parseCrc = (spacePacket) => {
 
 const parsePrimaryHeader = (binaryPrimaryHeader) => {
     const primaryHeader = parseBitFields(binaryPrimaryHeader, primaryHeaderFields);
-    if (primaryHeader.length !== PRIMARY_HEADER_LEN) throw new Error("Primary Header length is not correct");
+    if (primaryHeader.length !== PRIMARY_HEADER_LEN) {
+        throw new Error("Primary Header length is not correct");
+    }
     return primaryHeader;
 };
 
 const parseSecondaryHeader = (binarySecondaryHeader) => {
     const secondaryHeader = parseBitFields(binarySecondaryHeader, secondaryHeaderFields);
-    if (secondaryHeader.length !== SECONDARY_HEADER_LEN) throw new Error("Secondary Header length is not correct");
+    if (secondaryHeader.length !== SECONDARY_HEADER_LEN) {
+        throw new Error("Secondary Header length is not correct");
+    }
     return secondaryHeader;
 };

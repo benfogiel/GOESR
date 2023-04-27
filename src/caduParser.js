@@ -41,7 +41,6 @@ const validCadu = (parsedCadu) => {
 };
 
 const parseCadu = (bitStream) => {
-    
     const cadu = parseStruct(bitStream, caduFields, 0);
 
     try {

@@ -18,7 +18,9 @@ const parseBytes = (buffer, byteOffset, size, dataType, littleEndian = true) => 
             const row = [];
             for (let j = 0; j < cols; j++) {
                 const byteOffset = (i * cols + j) * 4;
-                const value = new DataView(slicedBuffer.slice(byteOffset, byteOffset + 4)).getFloat32(0, littleEndian);
+                const value = new DataView(
+                    slicedBuffer.slice(byteOffset, byteOffset + 4),
+                ).getFloat32(0, littleEndian);
                 row.push(value);
             }
             matrix.push(row);
@@ -72,11 +74,13 @@ export const parseByteFields = (binaryString, dataFields, littleEndian) => {
     const buffer = byteArray.buffer;
     const result = {};
     result.length = byteArray.length;
-    const expectedByteLength = Math.max(...dataFields.map((field) => field.byteOffset + field.size));
+    // const expectedByteLength = Math.max(...dataFields.map((field) => field.byteOffset + field.size));
     // if (result.length !== expectedByteLength) throw new Error(`Expected ${expectedByteLength} bytes, got ${result.length} bytes`);
 
     for (const field of dataFields) {
-        result[field.name] = parseBytes(buffer, field.byteOffset, field.size, field.dataType, littleEndian);
+        result[field.name] = parseBytes(
+            buffer, field.byteOffset, field.size, field.dataType, littleEndian,
+        );
     }
 
     return result;
@@ -86,7 +90,9 @@ export const parseBitFields = (binaryString, dataFields) => {
     const result = {};
     result.length = binaryString.length;
     const expectedBitLength = Math.max(...dataFields.map((field) => field.bitOffset + field.size));
-    if (result.length !== expectedBitLength) throw new Error(`Expected ${expectedBitLength} bits, got ${result.length} bits`);
+    if (result.length !== expectedBitLength) {
+        throw new Error(`Expected ${expectedBitLength} bits, got ${result.length} bits`);
+    }
 
     for (const field of dataFields) {
         result[field.name] = parseBits(binaryString, field.bitOffset, field.size, field.dataType);
@@ -98,21 +104,25 @@ export const parseBitFields = (binaryString, dataFields) => {
 export const parseStruct = (binaryString, fields, offset) => {
     const result = {};
     if (!fields) return null;
-  
+
     fields.forEach((field) => {
-      if (Object.keys(field).length > 0 && field[(Object.keys(field)[0])].fields) {
-        const subField = field[(Object.keys(field)[0])]
-        result[Object.keys(field)[0]] = parseStruct(binaryString, subField.fields, offset + (subField.bitOffset || 0));
-      } else {
-        result[field.name] = parseBits(binaryString, offset + (field.bitOffset || 0), field.size, field.dataType);
-      }
+        if (Object.keys(field).length > 0 && field[(Object.keys(field)[0])].fields) {
+            const subField = field[(Object.keys(field)[0])];
+            result[Object.keys(field)[0]] = parseStruct(
+                binaryString, subField.fields, offset + (subField.bitOffset || 0),
+            );
+        } else {
+            result[field.name] = parseBits(
+                binaryString, offset + (field.bitOffset || 0), field.size, field.dataType,
+            );
+        }
     });
-  
+
     return result;
-}
+};
 
 export const secEpochToDate = (secEpoch) => {
-    // epochSec is seconds since J2000 
+    // epochSec is seconds since J2000
     const j2000Epoch = Date.UTC(2000, 0, 1, 12, 0, 0, 0); // Jan 1, 2000 12:00:00 UTC
     return new Date(j2000Epoch + (secEpoch * 1000));
 };
@@ -138,7 +148,8 @@ export class PacketPriorityQueue {
                 console.log("duplicate sequence number detected within queue. Not adding new node");
                 return false; // Do not add newNode if it has the same sequence number as an existing node
             }
-            const diff = (newNode.seqNum - this.queue[i].seqNum + this.rolloverNum) % this.rolloverNum;
+            const diff = (newNode.seqNum - this.queue[i].seqNum + this.rolloverNum)
+                % this.rolloverNum;
 
             if (diff > 0 && diff < this.rolloverNum / 2) {
                 this.queue.splice(i, 0, newNode); // Insert newNode at index i
