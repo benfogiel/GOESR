@@ -80,12 +80,12 @@ export const apids = {
     SOLAR_GALACTIC_PROTON_APID: 1073
 };
 
-export const caduFields = {
-    sync: {
+export const caduFields = [
+    {sync: {
         fields: [{name: "sync", size: 32, bitOffset: 0}],
-        size: 32, bitOffset: 0,   
+        size: 32, bitOffset: 0,}   
     },
-    aosTransFrame: {
+    {aosTransFrame: {
         fields: [
             {transFramePrimaryHeader: {
                 fields: [
@@ -132,9 +132,9 @@ export const caduFields = {
                 size: 16, bitOffset: 2042*8}
             },
         ], 
-        size: 2044*8, bitOffset: 32
+        size: 2044*8, bitOffset: 32}
     }
-}
+]
 
 export const spacePacketFields = {
     primaryHeaderFields: [
