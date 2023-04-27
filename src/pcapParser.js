@@ -1,8 +1,9 @@
-const pcapp = require('pcap-parser');
-const fs = require('fs');
-const readline = require('readline');
+import pcapp from 'pcap-parser';
+import fs from 'fs';
+import readline from 'readline';
+import csv from 'csv-parser';
 
-const unpackPcap = (filename) => new Promise((resolve, reject) => {
+export const unpackPcap = (filename) => new Promise((resolve, reject) => {
     const parser = pcapp.parse(filename);
     const bitStreams = [];
 
@@ -23,9 +24,7 @@ const unpackPcap = (filename) => new Promise((resolve, reject) => {
     });
 });
 
-const csv = require('csv-parser');
-
-const readHexFile = (hexFile) => {
+export const readHexFile = (hexFile) => {
     // Create a readable stream to read the file in chunks
     const stream = fs.createReadStream(hexFile, { encoding: 'utf8' });
   
@@ -59,12 +58,3 @@ const readHexFile = (hexFile) => {
       });
     });
   };
-  
-
-  
-
-
-module.exports = {
-    unpackPcap,
-    readHexFile
-}

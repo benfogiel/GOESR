@@ -1,3 +1,5 @@
+import {caduConstants} from "./constants.js";
+
 const {
     CADU_LEN,
     SYNC_LEN,
@@ -18,34 +20,38 @@ const {
     RSVD_SPARE_VAL,
     VR_CH_FRAME_CNT_CYCLE_MAX,
     REPLAY_FLAG_VAL,
-} = require("./constants.js").caduConstants;
+} = caduConstants;
 
 const validCadu = (parsedCadu) => {
     if (parsedCadu.sync !== SYNC_VAL) throw new Error("Invalid sync value");
     if (
         parseInt(parsedCadu.aosTransferFrame.primaryHeader.virtualChannelFrameCount, 2)
-        > VR_CH_FRAME_CNT_MAX) 
+        > VR_CH_FRAME_CNT_MAX) {
         throw new Error("Invalid virtual channel frame count");
-    if (parsedCadu.aosTransferFrame.primaryHeader.signalingField.replayFlag !== REPLAY_FLAG_VAL)
+    }
+    if (parsedCadu.aosTransferFrame.primaryHeader.signalingField.replayFlag !== REPLAY_FLAG_VAL) {
         throw new Error("Invalid replay flag");
-    // TO DO: revisit this - it should be "1", but it is "0" in the test data, 
+    }
+    // TO DO: revisit this - it should be "1", but it is "0" in the test data,
     // if (
     //     parsedCadu.aosTransferFrame.primaryHeader.signalingField.virtualChannelFrameCountUsageFlag
-    //     !== VR_CH_FRAME_CNT_USAGE_FLAG_VAL) 
+    //     !== VR_CH_FRAME_CNT_USAGE_FLAG_VAL)
     //     throw new Error("Invalid virtual channel frame count usage flag");
     if (
         parsedCadu.aosTransferFrame.primaryHeader.signalingField.rsvdSpare
         !== RSVD_SPARE_VAL
         && parsedCadu.aosTransferFrame.dataField.mPduHeader.rsvdSpare
-        != RSVD_SPARE_VAL) 
+        !== RSVD_SPARE_VAL) {
         throw new Error("Invalid reserved spare");
+    }
     if (
         parseInt(parsedCadu.aosTransferFrame.primaryHeader.virtualChannelFrameCountCycle, 2)
-        > VR_CH_FRAME_CNT_CYCLE_MAX) 
+        > VR_CH_FRAME_CNT_CYCLE_MAX) {
         throw new Error("Invalid virtual channel frame count cycle");
+    }
 
     return true;
-}
+};
 
 const parseCadu = (bitStream) => {
     const parsedData = {};
@@ -56,7 +62,7 @@ const parseCadu = (bitStream) => {
 
     parsedData.aosTransferFrame = {
         primaryHeader: {},
-        dataField: {}
+        dataField: {},
     };
 
     const tfPrimaryHeader = parsedData.aosTransferFrame.primaryHeader;
@@ -100,13 +106,13 @@ const parseCadu = (bitStream) => {
     }
 
     try {
-        caduValid = validCadu(parsedData)
+        validCadu(parsedData);
     } catch (err) {
         console.log("Invalid CADU: " + err);
         return null;
-    };
+    }
 
     return parsedData;
-}
+};
 
-module.exports = parseCadu;
+export default parseCadu;

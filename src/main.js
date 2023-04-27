@@ -1,8 +1,8 @@
-const {readHexFile} = require('./pcapParser');
-const {SpacePacketIngestor} = require('./ingestor');
+import {readHexFile} from './pcapParser.js';
+import SpacePacketIngestor from './ingestor.js';
 
 const main = async () => {
-    const hexPackets = await readHexFile('packets.csv')
+    const hexPackets = await readHexFile('packets_large.csv')
         .catch((err) => {
             console.log(err);
             return;
@@ -10,7 +10,11 @@ const main = async () => {
     const spacePacketIngestor = new SpacePacketIngestor();
     for (let i = 0; i < hexPackets.length; i++) {
         const packet = hexPackets[i];
-        spacePacketIngestor.processPacket(packet);
+        try {
+            spacePacketIngestor.processPacket(packet);
+        } catch (error) {
+            console.log("ERROR processing packet:", error);
+        }
     }
 
     console.log(spacePacketIngestor);

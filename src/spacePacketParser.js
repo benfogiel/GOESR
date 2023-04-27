@@ -1,7 +1,10 @@
 // parses Space Packets
-const assert = require('assert');
-const crc32 = require('crc/crc32');
+import assert from "assert";
 
+import {spacePacketConstants, spacePacketFields} from "./constants.js";
+import {parseBitFields} from "./utils.js";
+
+const {primaryHeaderFields, secondaryHeaderFields} = spacePacketFields;
 const {
     PRIMARY_HEADER_LEN,
     SECONDARY_HEADER_LEN,
@@ -12,20 +15,18 @@ const {
     SEQUENCE_COUNT_MAX,
     GRB_VERSION_VAL,
     CRC_LEN,
-} = require('./constants').spacePacketConstants;
-const { primaryHeaderFields, secondaryHeaderFields } = require('./constants').spacePacketFields;
-const { parseBitFields } = require('./utils');
+} = spacePacketConstants;
 
 const validateSpacePacketHeaders = (primaryHeader, secondaryHeader) => {
     // check secondary header flag
-    if (primaryHeader.versionNum !== VERSION_1_VAL) throw new Error('Space Packet version Number is not 1');
-    if (primaryHeader.type !== TYPE_VAL) throw new Error('Space Packet type is not 0');
+    if (primaryHeader.versionNum !== VERSION_1_VAL) throw new Error("Space Packet version Number is not 1");
+    if (primaryHeader.type !== TYPE_VAL) throw new Error("Space Packet type is not 0");
     if (primaryHeader.secondaryHeaderFlag !== SECONDARY_HEADER_FLAG_VAL) throw new Error("Secondary Header Flag should be 1 for all Space Packets");
-    if (primaryHeader.sequenceCount > SEQUENCE_COUNT_MAX) throw new Error('Sequence Count is greater than the maximum allowed value');
-    if (secondaryHeader.grbVersion !== GRB_VERSION_VAL) throw new Error('GRB Version is not 0');
-}
+    if (primaryHeader.sequenceCount > SEQUENCE_COUNT_MAX) throw new Error("Sequence Count is greater than the maximum allowed value");
+    if (secondaryHeader.grbVersion !== GRB_VERSION_VAL) throw new Error("GRB Version is not 0");
+};
 
-const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
+export const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
     const binary = binarySpacePacket;
     let binPointer = 0;
     const primaryHeader = parsePrimaryHeader(binarySpacePacket.slice(0, PRIMARY_HEADER_LEN));
@@ -56,17 +57,17 @@ const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
         secondaryHeader,
         spaceData,
         remBits,
-        binary
-    }
+        binary,
+    };
     if (remBits === 0) {
         // we have a complete space packet, parse crc
         parseCrc(spacePacket);
     }
 
-    return spacePacket
-}
+    return spacePacket;
+};
 
-const appendRemBits = (spacePacket, remBits) => {
+export const appendRemBits = (spacePacket, remBits) => {
     assert(spacePacket.remBits <= remBits.length, "remBits length is less than the remaining bits in the space packet");
     spacePacket.spaceData = spacePacket.spaceData.concat(remBits);
     spacePacket.binary = spacePacket.binary.concat(remBits);
@@ -78,7 +79,7 @@ const appendRemBits = (spacePacket, remBits) => {
     }
 
     return spacePacket;
-}
+};
 
 const parseCrc = (spacePacket) => {
     assert(spacePacket.remBits === 0, "remBits is not 0");
@@ -94,30 +95,26 @@ const parseCrc = (spacePacket) => {
     //     console.log("It worked!");
     // }
 
-    return spacePacket
-}
+    return spacePacket;
+};
 
-const checkSum = (spacePacket) => {
-    // compile all the bits into a single string
-    let bitString = spacePacket.binary.slice(0, spacePacket.binary.length - CRC_LEN);
-    const byteArray = new Int8Array(Buffer.from(bitString, 'binary'));
-    const crc = crc32(byteArray);
-    return crc === parseInt(spacePacket.crc,2);
-}
+// TODO : CRC check is failing for all packets
+// const checkSum = (spacePacket) => {
+//     // compile all the bits into a single string
+//     let bitString = spacePacket.binary.slice(0, spacePacket.binary.length - CRC_LEN);
+//     const byteArray = new Int8Array(Buffer.from(bitString, 'binary'));
+//     const crc = crc32(byteArray);
+//     return crc === parseInt(spacePacket.crc,2);
+// }
 
 const parsePrimaryHeader = (binaryPrimaryHeader) => {
-    primaryHeader = parseBitFields(binaryPrimaryHeader, primaryHeaderFields);
-    if (primaryHeader.length !== PRIMARY_HEADER_LEN) throw new Error('Primary Header length is not correct');
+    const primaryHeader = parseBitFields(binaryPrimaryHeader, primaryHeaderFields);
+    if (primaryHeader.length !== PRIMARY_HEADER_LEN) throw new Error("Primary Header length is not correct");
     return primaryHeader;
-}
+};
 
 const parseSecondaryHeader = (binarySecondaryHeader) => {
     const secondaryHeader = parseBitFields(binarySecondaryHeader, secondaryHeaderFields);
-    if (secondaryHeader.length !== SECONDARY_HEADER_LEN) throw new Error('Secondary Header length is not correct');
+    if (secondaryHeader.length !== SECONDARY_HEADER_LEN) throw new Error("Secondary Header length is not correct");
     return secondaryHeader;
-}
-
-module.exports = {
-    parseSpacePacketHeaderSlice,
-    appendRemBits
-}
+};

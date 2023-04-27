@@ -1,5 +1,5 @@
-const dgram = require('dgram');
-const {readHexFile} = require('./pcapParser');
+import dgram from 'dgram';
+import {readHexFile} from './pcapParser.js';
 
 const main = async () => {
     const hexPackets = await readHexFile('packets.csv')

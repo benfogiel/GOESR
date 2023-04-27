@@ -1,28 +1,32 @@
-const assert = require('assert');
+import assert from "assert";
 
-const {PacketPriorityQueue} = require("./utils")
-const parseCadu = require("./caduParser");
-const {parseSpacePacketHeaderSlice, appendRemBits} = require("./spacePacketParser");
-const {
+import {PacketPriorityQueue} from "./utils.js";
+import parseCadu from "./caduParser.js";
+import {parseSpacePacketHeaderSlice, appendRemBits} from "./spacePacketParser.js";
+import {
     parseGenericData,
-    parseMidHiProton,
-    parseLowProton,
-    parseXRay,
+    getMidHiProton,
+    getLowProton,
+    getSolarGalacticProton,
+    getXRay,
     parseXRayMeta,
     parseProtonLowMeta,
     parseProtonMedHiMeta,
-} = require("./genericDataParser");
-const {caduConstants} = require("./constants.js");
-const {genericDataConstants} = require("./constants.js");
+} from "./genericData.js";
+import {caduConstants} from "./constants.js";
+import {genericDataConstants} from "./constants.js";
+import {spacePacketConstants} from "./constants.js";
+import {apids} from "./constants.js";
+
 const {
     RHCP_VAL,
     SP_POINTER_OVERFLOW_VAL,
     VR_CH_FRAME_CNT_MAX,
-} = require("./constants.js").caduConstants;
+} = caduConstants;
 const {
     GENERIC_PACKET_TYPE,
-    SEQUENCE_COUNT_MAX
-} = require("./constants.js").spacePacketConstants;
+    SEQUENCE_COUNT_MAX,
+} = spacePacketConstants;
 const {
     X_RAY_DATA_APID,
     PROTON_LOW_DATA_APID,
@@ -30,48 +34,63 @@ const {
     X_RAY_META_APID,
     PROTON_LOW_META_APID,
     PROTON_MED_HI_META_APID,
-} = require("./constants.js").apids;
+    SOLAR_GALACTIC_PROTON_APID,
+} = apids;
 
 const APIDS = [
     X_RAY_DATA_APID,
-    PROTON_LOW_DATA_APID,
-    PROTON_MED_HI_DATA_APID,
-    X_RAY_META_APID,
-    PROTON_LOW_META_APID,
-    PROTON_MED_HI_META_APID,
-]
+    // PROTON_LOW_DATA_APID,
+    // PROTON_MED_HI_DATA_APID,
+    // X_RAY_META_APID,
+    // PROTON_LOW_META_APID,
+    // PROTON_MED_HI_META_APID,
+    SOLAR_GALACTIC_PROTON_APID,
+];
 
-class SpacePacketIngestor {
-
+export default class SpacePacketIngestor {
     constructor() {
         this.xRay = {
             segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
-            complete: []
+            complete: [],
         };
         this.protonLow = {
             segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
-            complete: []
+            complete: [],
         };
         this.protonMedHi = {
             segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
-            complete: []
+            complete: [],
+        };
+        this.solarGalacticProton = {
+            segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
+            complete: [],
         };
         this.protonLowMeta = {
             segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
-            complete: []
+            complete: [],
         };
         this.protonMedHiMeta = {
             segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
-            complete: []
+            complete: [],
         };
         this.xRayMeta = {
             segmented: new PacketPriorityQueue(SEQUENCE_COUNT_MAX+1, genericDataConstants.PACKET_QUEUE_CAPACITY),
-            complete: []
+            complete: [],
         };
         this.cadus = new PacketPriorityQueue(VR_CH_FRAME_CNT_MAX+1, caduConstants.PACKET_QUEUE_CAPACITY);
         this.caduRequests = new PacketPriorityQueue(VR_CH_FRAME_CNT_MAX+1, caduConstants.CADU_REQUESTS_CAPACITY);
     }
-    
+
+    emptyComplete() {
+        this.xRay.complete = [];
+        this.protonLow.complete = [];
+        this.protonMedHi.complete = [];
+        this.solarGalacticProton.complete = [];
+        this.protonLowMeta.complete = [];
+        this.protonMedHiMeta.complete = [];
+        this.xRayMeta.complete = [];
+    }
+
     processPacket(hexPacket) {
         // convert hex string to binary string
         const bitStreamBin = hexToBin(hexPacket);
@@ -91,7 +110,7 @@ class SpacePacketIngestor {
 
         // fulfill CADU requests
         // run each cadu request through addRemBits
-        for(let i = 0; i < this.caduRequests.queue.length; i++) {
+        for (let i = 0; i < this.caduRequests.queue.length; i++) {
             const caduRequest = this.caduRequests.queue[i];
             this.addRemBits(caduRequest.packet, caduRequest.seqNum);
         }
@@ -124,14 +143,13 @@ class SpacePacketIngestor {
         if (nextCadu) {
             const nextMpduPacketZone = nextCadu.aosTransferFrame.dataField.mPduPacketZone;
             const remDataSlice = nextMpduPacketZone.slice(0, spacePacketSlice.remBits);
-            if (remDataSlice !== null && remDataSlice.length > 0 
+            if (remDataSlice !== null && remDataSlice.length > 0
                 && remDataSlice.length === spacePacketSlice.remBits
                 && (
                     nextCadu.aosTransferFrame.dataField.mPduHeader.firstHeaderPointer === SP_POINTER_OVERFLOW_VAL
-                    ||
-                    parseInt(nextCadu.aosTransferFrame.dataField.mPduHeader.firstHeaderPointer,2) === parseInt(spacePacketSlice.remBits/8)
+                    || parseInt(nextCadu.aosTransferFrame.dataField.mPduHeader.firstHeaderPointer, 2) === parseInt(spacePacketSlice.remBits/8)
                 )
-                ) {
+            ) {
                 appendRemBits(spacePacketSlice, remDataSlice);
                 if (spacePacketSlice.remBits > 0) {
                     // we have more bits to append
@@ -147,7 +165,7 @@ class SpacePacketIngestor {
                 this.caduRequests.dequeue(caduRequestFrame);
                 this.recordSpacePacket(spacePacketSlice);
             } else {
-                throw ("Issue occurred while appending remaining bits")
+                throw Error("Issue occurred while appending remaining bits");
             }
         } else {
             // we're missing the next cadu, keep the space packet in the requests queue
@@ -157,37 +175,41 @@ class SpacePacketIngestor {
 
     assembleSpacePacket(segments, storage) {
         // remove each segment from the segmented storage
-        segments.forEach(segment => {
-            assert(segment.remBits === 0, "Segment still has remaining bits")
+        segments.forEach((segment) => {
+            assert(segment.remBits === 0, "Segment still has remaining bits");
             delete storage.segmented.dequeue[segment.primaryHeader.sequenceCount];
         });
-        let spacePacket = parseGenericData(segments.reduce((acc, segment) => {
+        const spacePacket = parseGenericData(segments.reduce((acc, segment) => {
             return acc + segment.spaceData;
         }, ""));
         spacePacket.apid = segments[0].primaryHeader.apid;
+        let processedData;
         switch (spacePacket.apid) {
             case X_RAY_DATA_APID:
-                spacePacket.data = parseXRay(spacePacket.data);
+                processedData = getXRay(spacePacket);
                 break;
             case PROTON_LOW_DATA_APID:
-                spacePacket.data = parseLowProton(spacePacket.data);
+                processedData = getLowProton(spacePacket);
                 break;
             case PROTON_MED_HI_DATA_APID:
-                spacePacket.data = parseMidHiProton(spacePacket.data);
+                processedData = getMidHiProton(spacePacket);
+                break;
+            case SOLAR_GALACTIC_PROTON_APID:
+                processedData = getSolarGalacticProton(spacePacket);
                 break;
             case X_RAY_META_APID:
-                spacePacket.data = parseXRayMeta(spacePacket.data);
+                processedData = parseXRayMeta(spacePacket);
                 break;
             case PROTON_LOW_META_APID:
-                spacePacket.data = parseProtonLowMeta(spacePacket.data);
+                processedData = parseProtonLowMeta(spacePacket);
                 break;
             case PROTON_MED_HI_META_APID:
-                spacePacket.data = parseProtonMedHiMeta(spacePacket.data);
+                processedData = parseProtonMedHiMeta(spacePacket);
                 break;
             default:
                 throw new Error("APID is not valid");
         }
-        storage.complete.push(spacePacket);
+        storage.complete.push(processedData);
     }
 
     recordSpacePacket(spacePacket) {
@@ -200,7 +222,10 @@ class SpacePacketIngestor {
                 storage = this.protonLow;
                 break;
             case PROTON_MED_HI_DATA_APID:
-                storage = this.protonMedHi
+                storage = this.protonMedHi;
+                break;
+            case SOLAR_GALACTIC_PROTON_APID:
+                storage = this.solarGalacticProton;
                 break;
             case X_RAY_META_APID:
                 storage = this.xRayMeta;
@@ -219,7 +244,7 @@ class SpacePacketIngestor {
             // startingSegment cannot be the last segment
             assert(startingSegment.primaryHeader.sequenceFlag !== "10", "startingSegment cannot be the last segment");
             let nextPacket = storage.segmented.getPacket((startingSegment.primaryHeader.sequenceCount + 1) % (SEQUENCE_COUNT_MAX + 1))?.packet;
-            let segments = [];
+            const segments = [];
             while (nextPacket) {
                 segments.push(nextPacket);
                 if (nextPacket.primaryHeader.sequenceFlag === "10") {
@@ -229,13 +254,13 @@ class SpacePacketIngestor {
                 nextPacket = storage.segmented.getPacket((nextPacket.primaryHeader.sequenceCount + 1) % (SEQUENCE_COUNT_MAX + 1))?.packet;
             }
             return null;
-        }
+        };
         const getPreviousSegments = (startingSegment) => {
             // find the first segment of the space packet
             // startingSegment cannot be the first segment
-            assert(startingSegment.primaryHeader.sequenceFlag !== "01", "startingSegment cannot be the first segment")
+            assert(startingSegment.primaryHeader.sequenceFlag !== "01", "startingSegment cannot be the first segment");
             let prevPacket = storage.segmented.getPacket((startingSegment.primaryHeader.sequenceCount - 1) % (SEQUENCE_COUNT_MAX + 1))?.packet;
-            let segments = [];
+            const segments = [];
             while (prevPacket) {
                 segments.unshift(prevPacket);
                 if (prevPacket.primaryHeader.sequenceFlag === "01") {
@@ -245,7 +270,7 @@ class SpacePacketIngestor {
                 prevPacket = storage.segmented.getPacket((prevPacket.primaryHeader.sequenceCount - 1) % (SEQUENCE_COUNT_MAX + 1))?.packet;
             }
             return null;
-        }    
+        };
         if (spacePacket.primaryHeader.sequenceFlag === "11") {
             // space packet is unsegmented
             return this.assembleSpacePacket([spacePacket], storage);
@@ -255,7 +280,7 @@ class SpacePacketIngestor {
             const nextSegments = getNextSegments(spacePacket);
             if (nextSegments !== null) {
                 // we have the last segment, we can assemble the space packet
-                return this.assembleSpacePacket([spacePacket,...nextSegments], storage);
+                return this.assembleSpacePacket([spacePacket, ...nextSegments], storage);
             }
         } else if (spacePacket.primaryHeader.sequenceFlag === "10") {
             // this is the last segment of a segmented space packet
@@ -272,7 +297,7 @@ class SpacePacketIngestor {
             const nextSegments = getNextSegments(spacePacket);
             if (prevSegments !== null && nextSegments !== null) {
                 // we have both the first and last segments, we can assemble the space packet
-                return this.assembleSpacePacket([...prevSegments, spacePacket,...nextSegments], storage);
+                return this.assembleSpacePacket([...prevSegments, spacePacket, ...nextSegments], storage);
             }
         } else {
             throw new Error("Sequence flag is not valid");
@@ -281,14 +306,14 @@ class SpacePacketIngestor {
 }
 
 function hexToBin(hexArray) {
-    let binaryString = '';
-  
+    let binaryString = "";
+
     for (let i = 0; i < hexArray.length; i++) {
-      let binary = parseInt(hexArray[i], 16).toString(2);
-      binary = binary.padStart(8, '0');
-      binaryString += binary;
+        let binary = parseInt(hexArray[i], 16).toString(2);
+        binary = binary.padStart(8, "0");
+        binaryString += binary;
     }
-  
+
     return binaryString;
 }
 
@@ -296,11 +321,7 @@ const spacePacketFilter = (spacePacketHeaderSlice) => {
     if (!APIDS.includes(spacePacketHeaderSlice.primaryHeader.apid)) return false;
     // additional checks
     if (spacePacketHeaderSlice.secondaryHeader.grbPayloadVariant !== GENERIC_PACKET_TYPE) {
-        throw new Error('Space Packet type is not 0 (Generic Packet)');
+        throw new Error("Space Packet type is not 0 (Generic Packet)");
     }
     return true;
-}
-
-module.exports = {
-    SpacePacketIngestor
-}
+};
