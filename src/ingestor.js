@@ -105,7 +105,7 @@ export default class SpacePacketIngestor {
             return null;
         }
 
-        const caduFrame = parseInt(tfph.virtualChannelFrameCount, 2);
+        const caduFrame = tfph.virtualChannelFrameCount;
         this.cadus.enqueue(cadu, caduFrame);
 
         // fulfill CADU requests
@@ -126,7 +126,7 @@ export default class SpacePacketIngestor {
                 // this is a space packet that we're interested in
                 if (spacePacketSlice.remBits > 0) {
                     // this space packet is split across multiple CADUs
-                    const caduRequestFrame = (parseInt(tfph.virtualChannelFrameCount, 2) + 1) % (VR_CH_FRAME_CNT_MAX+1);
+                    const caduRequestFrame = (tfph.virtualChannelFrameCount + 1) % (VR_CH_FRAME_CNT_MAX+1);
                     this.caduRequests.enqueue(spacePacketSlice, caduRequestFrame);
                     this.addRemBits(spacePacketSlice, caduRequestFrame);
                     return;

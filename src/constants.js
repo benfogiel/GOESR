@@ -1,26 +1,6 @@
 // all constants are defined here
 
 export const caduConstants = {
-    CADU_LEN: 2048 * 8, // bits
-    SYNC_LEN: 4 * 8, // bits
-    AOS_TRANSFER_FRAME_LEN: 2044 * 8, // bits
-    TRANSFER_FRAME_PRIMARY_HEADER_LEN: 6 * 8, // bits
-    MASTER_CHANNEL_ID_LEN: 10, // bits
-    TRANSFER_FRAME_VERSION_NUM_LEN: 2, // bits
-    SPACECRAFT_ID_LEN: 8, // bits
-    VIRTUAL_CHANNEL_ID_LEN: 6, // bits
-    VIRTUAL_CHANNEL_FRAME_COUNT_LEN: 24, // bits
-    SIGNALLING_FIELD_LEN: 8, // bits
-    REPLAY_FLAG_LEN: 1, // bit
-    VIRTUAL_CHANNEL_FRAME_COUNT_USAGE_FLAG_LEN: 1, // bit
-    SING_RSVD_SPARE_LEN: 2, // bits
-    VIRTUAL_CHANNEL_FRAME_COUNT_CYCLE_LEN: 4, // bits
-    TRANSFER_FRAME_DATA_FIELD_LEN: 2036 * 8, // bits
-    MPDU_HEADER_LEN: 2 * 8, // bits
-    MPDU_RSVD_SPARE_LEN: 5, // bits
-    FIRST_HEADER_POINTER_LEN: 11, // bits
-    MPDU_PACKET_ZONE_LEN: 2034 * 8, // bits
-    FRAME_ERROR_CONTROL_FIELD_LEN: 2 * 8, // bits
     SYNC_VAL: "00011010110011111111110000011101",
     RHCP_VAL: "000101",
     SP_POINTER_OVERFLOW_VAL: "11111111111",
@@ -34,22 +14,8 @@ export const caduConstants = {
 };
 
 export const spacePacketConstants = {
-    M_PDU_PACKET_LEN: 2034*8,
     PRIMARY_HEADER_LEN: 6*8,
-    VERSION_NUM_LEN: 3,
-    TYPE_LEN: 1,
-    SECONDARY_HEADER_FLAG_LEN: 1,
-    APID_LEN: 11,
-    SEQUENCE_FLAGS_LEN: 2,
-    SEQUENCE_COUNT_LEN: 14,
-    DATA_LENGTH_LEN: 16,
     SECONDARY_HEADER_LEN: 8*8,
-    DAYS_SINCE_EPOCH_LEN: 16,
-    MILLISECONDS_OF_DAY_LEN: 32,
-    GRB_VERSION_LEN: 5,
-    GRB_PAYLOAD_VARIANT_LEN: 5,
-    ASSEMBLER_ID_LEN: 2,
-    SYSTEM_ENV_LEN: 4,
     USER_DATA_FIELD_MAX_LEN: 16376*8, // 16376 bytes includes the CRC
     CRC_LEN: 4*8,
     VERSION_1_VAL: "000",
@@ -62,11 +28,6 @@ export const spacePacketConstants = {
 
 export const genericDataConstants = {
     GENERIC_HEADER_LEN: 21*8, // bits
-    COMPRESS_ALGO_LEN: 8, // bits
-    SEC_EPOCH_LEN: 32, // bits
-    MICRO_SEC_LEN: 32, // bits
-    RESERVED_LEN: 64, // bits
-    DATA_UNIT_SEQ_COUNT_LEN: 32, // bits
     PACKET_QUEUE_CAPACITY: 100,
 };
 
@@ -81,56 +42,45 @@ export const apids = {
 };
 
 export const caduFields = [
-    {sync: {
-        fields: [{name: "sync", size: 32, bitOffset: 0}],
-        size: 32, bitOffset: 0,}   
-    },
-    {aosTransFrame: {
+    {name: "sync", dataType: "bitString", size: 32, bitOffset: 0},
+    {aosTransferFrame: {
         fields: [
-            {transFramePrimaryHeader: {
+            {primaryHeader: {
                 fields: [
                     {masterChannelId: {
                         fields: [
-                            {name: "transFrameVersionNum", size: 2, bitOffset: 0},
-                            {name: "spacecraftId", size: 8, bitOffset: 2},
+                            {name: "transferFrameVersionNumber", dataType: "bitString", size: 2, bitOffset: 0},
+                            {name: "spacecraftId", dataType: "bitString", size: 8, bitOffset: 2},
                         ],
                         size: 10, bitOffset: 0}
                     },
-                    {name: "virtualChannelId", size: 6, bitOffset: 10},
-                    {name: "virtualChannelFrameCount", size: 24, bitOffset: 16},
+                    {name: "virtualChannelId", dataType: "bitString", size: 6, bitOffset: 10},
+                    {name: "virtualChannelFrameCount", dataType: "integer", size: 24, bitOffset: 16},
                     {signalingField: {
                         fields: [
-                            {name: "replayFlag", size: 1, bitOffset: 0},
-                            {name: "virtualChannelFrameCountUsageFlag", size: 1, bitOffset: 1},
-                            {name: "singRsvdSpare", size: 2, bitOffset: 2},
-                            {name: "virtualChannelFrameCountCycle", size: 4, bitOffset: 4},
-                        ], name: "signalingField", size: 8, bitOffset: 40}
+                            {name: "replayFlag", dataType: "bitString", size: 1, bitOffset: 0},
+                            {name: "virtualChannelFrameCountUsageFlag", dataType: "bitString", size: 1, bitOffset: 1},
+                            {name: "rsvdSpare", dataType: "bitString", size: 2, bitOffset: 2},
+                            {name: "virtualChannelFrameCountCycle", dataType: "integer", size: 4, bitOffset: 4},
+                        ], 
+                        size: 8, bitOffset: 40}
                     },
                 ],
                 size: 48, bitOffset: 0}
             },
-            {transFrameDataField: {
+            {dataField: {
                 fields: [
-                    {mpduHeader: {
+                    {mPduHeader: {
                         fields: [
-                            {name: "rsvdSpare", size: 5, bitOffset: 0},
-                            {name: "firstHeaderPointer", size: 11, bitOffset: 5},
+                            {name: "rsvdSpare", dataType: "bitString", size: 5, bitOffset: 0},
+                            {name: "firstHeaderPointer", dataType: "bitString", size: 11, bitOffset: 5},
                         ], 
                         size: 16, bitOffset: 0}},
-                    {mpduPacketZone: {
-                        fields: [
-                            {name: "mpduPacketZone", size: 2034*8, bitOffset: 0},
-                        ],
-                        size: 2034*8, bitOffset: 16}},
+                    {name: "mPduPacketZone", dataType: "bitString", size: 2034*8, bitOffset: 16},
                 ],
                 size: 2036*8, bitOffset: 48}
             },
-            {frameErrorControlField: {
-                fields: [
-                    {name: "frameErrorControlField", size: 16, bitOffset: 0},
-                ],
-                size: 16, bitOffset: 2042*8}
-            },
+            {name: "frameErrorControlField", dataType: "bitString", size: 16, bitOffset: 2042*8},
         ], 
         size: 2044*8, bitOffset: 32}
     }

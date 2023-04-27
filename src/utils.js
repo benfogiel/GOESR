@@ -8,7 +8,7 @@ const binaryStringToByteArray = (binaryString) => {
     return byteArray;
 };
 
-const readBytes = (buffer, byteOffset, size, dataType, littleEndian = true) => {
+const parseBytes = (buffer, byteOffset, size, dataType, littleEndian = true) => {
     const slicedBuffer = buffer.slice(byteOffset, byteOffset + size);
     const view = new DataView(slicedBuffer);
 
@@ -56,7 +56,7 @@ const readBytes = (buffer, byteOffset, size, dataType, littleEndian = true) => {
     }
 };
 
-const readBits = (binaryString, bitOffset, size, dataType) => {
+const parseBits = (binaryString, bitOffset, size, dataType) => {
     switch (dataType) {
         case "bitString":
             return binaryString.slice(bitOffset, bitOffset + size);
@@ -76,7 +76,7 @@ export const parseByteFields = (binaryString, dataFields, littleEndian) => {
     // if (result.length !== expectedByteLength) throw new Error(`Expected ${expectedByteLength} bytes, got ${result.length} bytes`);
 
     for (const field of dataFields) {
-        result[field.name] = readBytes(buffer, field.byteOffset, field.size, field.dataType, littleEndian);
+        result[field.name] = parseBytes(buffer, field.byteOffset, field.size, field.dataType, littleEndian);
     }
 
     return result;
@@ -89,11 +89,27 @@ export const parseBitFields = (binaryString, dataFields) => {
     if (result.length !== expectedBitLength) throw new Error(`Expected ${expectedBitLength} bits, got ${result.length} bits`);
 
     for (const field of dataFields) {
-        result[field.name] = readBits(binaryString, field.bitOffset, field.size, field.dataType);
+        result[field.name] = parseBits(binaryString, field.bitOffset, field.size, field.dataType);
     }
 
     return result;
 };
+
+export const parseStruct = (binaryString, fields, offset) => {
+    const result = {};
+    if (!fields) return null;
+  
+    fields.forEach((field) => {
+      if (Object.keys(field).length > 0 && field[(Object.keys(field)[0])].fields) {
+        const subField = field[(Object.keys(field)[0])]
+        result[Object.keys(field)[0]] = parseStruct(binaryString, subField.fields, offset + (subField.bitOffset || 0));
+      } else {
+        result[field.name] = parseBits(binaryString, offset + (field.bitOffset || 0), field.size, field.dataType);
+      }
+    });
+  
+    return result;
+}
 
 export const secEpochToDate = (secEpoch) => {
     // epochSec is seconds since J2000 
