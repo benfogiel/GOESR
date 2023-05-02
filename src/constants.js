@@ -41,61 +41,65 @@ export const apids = {
     SOLAR_GALACTIC_PROTON_APID: 1073,
 };
 
-export const caduFields = [
-    {name: "sync", dataType: "bitString", size: 32, bitOffset: 0},
-    {aosTransferFrame: {
-        fields: [
-            {primaryHeader: {
-                fields: [
-                    {masterChannelId: {
-                        fields: [
-                            {name: "transferFrameVersionNumber",
-                                dataType: "bitString", size: 2, bitOffset: 0},
-                            {name: "spacecraftId",
-                                dataType: "bitString", size: 8, bitOffset: 2},
-                        ],
-                        size: 10, bitOffset: 0},
-                    },
-                    {name: "virtualChannelId", dataType: "bitString",
-                        size: 6, bitOffset: 10},
-                    {name: "virtualChannelFrameCount", dataType: "integer",
-                        size: 24, bitOffset: 16},
-                    {signalingField: {
-                        fields: [
-                            {name: "replayFlag",
-                                dataType: "bitString", size: 1, bitOffset: 0},
-                            {name: "virtualChannelFrameCountUsageFlag",
-                                dataType: "bitString", size: 1, bitOffset: 1},
-                            {name: "rsvdSpare",
-                                dataType: "bitString", size: 2, bitOffset: 2},
-                            {name: "virtualChannelFrameCountCycle",
-                                dataType: "integer", size: 4, bitOffset: 4},
-                        ],
-                        size: 8, bitOffset: 40},
-                    },
-                ],
-                size: 48, bitOffset: 0},
-            },
-            {dataField: {
-                fields: [
-                    {mPduHeader: {
-                        fields: [
-                            {name: "rsvdSpare",
-                                dataType: "bitString", size: 5, bitOffset: 0},
-                            {name: "firstHeaderPointer",
-                                dataType: "bitString", size: 11, bitOffset: 5},
-                        ],
-                        size: 16, bitOffset: 0}},
-                    {name: "mPduPacketZone",
-                        dataType: "bitString", size: 2034*8, bitOffset: 16},
-                ],
-                size: 2036*8, bitOffset: 48},
-            },
-            {name: "frameErrorControlField", dataType: "bitString", size: 16, bitOffset: 2042*8},
-        ],
-        size: 2044*8, bitOffset: 32},
-    },
-];
+export const caduFields = {
+    fields: [
+        {name: "sync", dataType: "bitString", size: 32, bitOffset: 0},
+        {aosTransferFrame: {
+            fields: [
+                {primaryHeader: {
+                    fields: [
+                        {masterChannelId: {
+                            fields: [
+                                {name: "transferFrameVersionNumber",
+                                    dataType: "bitString", size: 2, bitOffset: 0},
+                                {name: "spacecraftId",
+                                    dataType: "bitString", size: 8, bitOffset: 2},
+                            ],
+                            size: 10, bitOffset: 0},
+                        },
+                        {name: "virtualChannelId", dataType: "bitString",
+                            size: 6, bitOffset: 10},
+                        {name: "virtualChannelFrameCount", dataType: "integer",
+                            size: 24, bitOffset: 16},
+                        {signalingField: {
+                            fields: [
+                                {name: "replayFlag",
+                                    dataType: "bitString", size: 1, bitOffset: 0},
+                                {name: "virtualChannelFrameCountUsageFlag",
+                                    dataType: "bitString", size: 1, bitOffset: 1},
+                                {name: "rsvdSpare",
+                                    dataType: "bitString", size: 2, bitOffset: 2},
+                                {name: "virtualChannelFrameCountCycle",
+                                    dataType: "integer", size: 4, bitOffset: 4},
+                            ],
+                            size: 8, bitOffset: 40},
+                        },
+                    ],
+                    size: 48, bitOffset: 0},
+                },
+                {dataField: {
+                    fields: [
+                        {mPduHeader: {
+                            fields: [
+                                {name: "rsvdSpare",
+                                    dataType: "bitString", size: 5, bitOffset: 0},
+                                {name: "firstHeaderPointer",
+                                    dataType: "bitString", size: 11, bitOffset: 5},
+                            ],
+                            size: 16, bitOffset: 0}},
+                        {name: "mPduPacketZone",
+                            dataType: "bitString", size: 2034*8, bitOffset: 16},
+                    ],
+                    size: 2036*8, bitOffset: 48},
+                },
+                {name: "frameErrorControlField", dataType: "bitString",
+                    size: 16, bitOffset: 2042*8},
+            ],
+            size: 2044*8, bitOffset: 32},
+        },
+    ],
+    size: 2048*8, bitOffset: 0,
+};
 
 export const spacePacketFields = {
     primaryHeaderFields: [

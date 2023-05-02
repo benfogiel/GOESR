@@ -20,7 +20,7 @@ const {
 const validateSpacePacketHeaders = (primaryHeader, secondaryHeader) => {
     // check secondary header flag
     if (primaryHeader.versionNum !== VERSION_1_VAL) {
-        throw new Error("Space Packet version Number is not 1");
+        throw new Error("Space Packet version Number is not 0");
     }
     if (primaryHeader.type !== TYPE_VAL) {
         throw new Error("Space Packet type is not 0");
@@ -58,11 +58,10 @@ export const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
     let spaceData;
     let remBits = 0;
     if (userData.length >= dataLength) {
-        // user data length is within expected range
+        // user data length is able to fill the expected length
         spaceData = userData.slice(0, dataLength);
     } else {
-        // user data length is less than expected
-        // console.log("User Data Length is less than expected (APID: " + primaryHeader.apid + ")");
+        // user data length does not include the entire space packet
         remBits = dataLength - userData.length;
         spaceData = userData;
     }
@@ -82,8 +81,8 @@ export const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
 };
 
 export const appendRemBits = (spacePacket, remBits) => {
-    assert(spacePacket.remBits <= remBits.length,
-        "remBits length is less than the remaining bits in the space packet");
+    assert(spacePacket.remBits >= remBits.length,
+        "remBits length is greater than the remaining bits in the space packet");
     spacePacket.spaceData = spacePacket.spaceData.concat(remBits);
     spacePacket.binary = spacePacket.binary.concat(remBits);
     spacePacket.remBits = spacePacket.remBits - remBits.length;

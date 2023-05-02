@@ -8,7 +8,7 @@ import {
 
 const {GENERIC_HEADER_LEN} = genericDataConstants;
 
-function calculateProtonFlux(diffFluxMatrix, energyBands, lowerBound, upperBound) {
+const calculateProtonFlux = (diffFluxMatrix, energyBands, lowerBound, upperBound) => {
     let totalFlux = 0;
 
     for (let i = 0; i < diffFluxMatrix.length; i++) {
@@ -23,7 +23,7 @@ function calculateProtonFlux(diffFluxMatrix, energyBands, lowerBound, upperBound
     }
 
     return totalFlux;
-}
+};
 
 const parseHeader = (spaceData) => {
     return parseBitFields(spaceData, genericPayloadFields);
@@ -44,14 +44,14 @@ export const getXRay = (xRaySpacePacket) => {
     const parsedData = parseByteFields(xRaySpacePacket.data, xRayDataFields, true);
     // TODO: check quality flags
     return {
-        date: secEpochToDate(xRaySpacePacket.header.secEpoch),
+        date: secEpochToDate(xRaySpacePacket.header.secEpoch+xRaySpacePacket.header.microSec*1e-6),
         value: parsedData.irradiance_xrsb1,
     };
 };
 
-export const getSolarGalacticProton = (midHiProtonSpacePacket) => {
+export const getSolarGalacticProton = (solarGalacticProtonPacket) => {
     const parsedData = parseByteFields(
-        midHiProtonSpacePacket.data, solarGalacticProtonDataFields, true,
+        solarGalacticProtonPacket.data, solarGalacticProtonDataFields, true,
     );
     // TODO: check quality flags
     const t1DiffFlux = parsedData.T1_DifferentialProtonFluxes; // 2by6 matrix, 2 sensors, 6 energy bands
@@ -94,21 +94,12 @@ export const getSolarGalacticProton = (midHiProtonSpacePacket) => {
     )+integral500flux;
 
     return {
-        date: secEpochToDate(parsedData.L1a_SciData_TimeStamp),
+        date: secEpochToDate(
+            solarGalacticProtonPacket.header.secEpoch
+            +solarGalacticProtonPacket.header.microSec*1e-6
+        ),
         proton10: protonFlux10MeV,
         proton50: protonFlux50MeV,
         proton100: protonFlux100MeV,
     };
-};
-
-export const parseXRayMeta = (xRayMetaBinStr) => {
-    return xRayMetaBinStr;
-};
-
-export const parseProtonLowMeta = (protonLowMetaBinStr) => {
-    return protonLowMetaBinStr;
-};
-
-export const parseProtonMedHiMeta = (protonMidHiMetaBinStr) => {
-    return protonMidHiMetaBinStr;
 };

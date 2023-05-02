@@ -1,6 +1,6 @@
 import assert from "assert";
 
-const binaryStringToByteArray = (binaryString) => {
+export const binaryStringToByteArray = (binaryString) => {
     const byteArray = new Uint8Array(binaryString.length / 8);
     for (let i = 0; i < binaryString.length; i += 8) {
         byteArray[i / 8] = parseInt(binaryString.slice(i, i + 8), 2);
@@ -8,7 +8,7 @@ const binaryStringToByteArray = (binaryString) => {
     return byteArray;
 };
 
-const parseBytes = (buffer, byteOffset, size, dataType, littleEndian = true) => {
+export const parseBytes = (buffer, byteOffset, size, dataType, littleEndian = true) => {
     const slicedBuffer = buffer.slice(byteOffset, byteOffset + size);
     const view = new DataView(slicedBuffer);
 
@@ -58,7 +58,7 @@ const parseBytes = (buffer, byteOffset, size, dataType, littleEndian = true) => 
     }
 };
 
-const parseBits = (binaryString, bitOffset, size, dataType) => {
+export const parseBits = (binaryString, bitOffset, size, dataType) => {
     switch (dataType) {
         case "bitString":
             return binaryString.slice(bitOffset, bitOffset + size);
@@ -74,8 +74,6 @@ export const parseByteFields = (binaryString, dataFields, littleEndian) => {
     const buffer = byteArray.buffer;
     const result = {};
     result.length = byteArray.length;
-    // const expectedByteLength = Math.max(...dataFields.map((field) => field.byteOffset + field.size));
-    // if (result.length !== expectedByteLength) throw new Error(`Expected ${expectedByteLength} bytes, got ${result.length} bytes`);
 
     for (const field of dataFields) {
         result[field.name] = parseBytes(
@@ -101,19 +99,21 @@ export const parseBitFields = (binaryString, dataFields) => {
     return result;
 };
 
-export const parseStruct = (binaryString, fields, offset) => {
-    const result = {};
-    if (!fields) return null;
+export const parseStruct = (binaryString, field) => {
+    const result ={};
+    if (!binaryString) return null;
+    assert(binaryString.length === field.size,
+        `binaryString must be the same length as the field size (${binaryString.length} != ${field.size})`);
 
-    fields.forEach((field) => {
+    field.fields.forEach((field) => {
         if (Object.keys(field).length > 0 && field[(Object.keys(field)[0])].fields) {
             const subField = field[(Object.keys(field)[0])];
             result[Object.keys(field)[0]] = parseStruct(
-                binaryString, subField.fields, offset + (subField.bitOffset || 0),
+                binaryString.slice(subField.bitOffset, subField.bitOffset+subField.size), subField,
             );
         } else {
             result[field.name] = parseBits(
-                binaryString, offset + (field.bitOffset || 0), field.size, field.dataType,
+                binaryString, field.bitOffset, field.size, field.dataType,
             );
         }
     });
@@ -127,7 +127,6 @@ export const secEpochToDate = (secEpoch) => {
     return new Date(j2000Epoch + (secEpoch * 1000));
 };
 
-
 export class PacketPriorityQueue {
     constructor(rolloverNum, maxSize) {
         this.queue = [];
@@ -139,7 +138,7 @@ export class PacketPriorityQueue {
     enqueue(packet, seqNum) {
         if (this.queue.length >= this.maxSize) {
             // de-queue the lowest priority packet
-            this.queue.pop().packet;
+            this.queue.pop();
         }
         const newNode = {packet, seqNum};
 

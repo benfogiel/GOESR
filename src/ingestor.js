@@ -115,7 +115,6 @@ export default class SpacePacketIngestor {
             const nextMpduPacketZone = nextCadu.aosTransferFrame.dataField.mPduPacketZone;
             const remDataSlice = nextMpduPacketZone.slice(0, spacePacketSlice.remBits);
             if (remDataSlice !== null && remDataSlice.length > 0
-                && remDataSlice.length === spacePacketSlice.remBits
                 && (
                     nextCadu.aosTransferFrame.dataField.mPduHeader.firstHeaderPointer
                         === SP_POINTER_OVERFLOW_VAL
@@ -151,7 +150,7 @@ export default class SpacePacketIngestor {
         // remove each segment from the segmented storage
         segments.forEach((segment) => {
             assert(segment.remBits === 0, "Segment still has remaining bits");
-            delete storage.segmented.dequeue[segment.primaryHeader.sequenceCount];
+            storage.segmented.dequeue(segment.primaryHeader.sequenceCount);
         });
         const spacePacket = parseGenericData(segments.reduce((acc, segment) => {
             return acc + segment.spaceData;
@@ -183,55 +182,13 @@ export default class SpacePacketIngestor {
             default:
                 throw new Error("APID is not valid");
         }
-        const getNextSegments = (startingSegment) => {
-            // find the last segment of the space packet
-            // startingSegment cannot be the last segment
-            assert(startingSegment.primaryHeader.sequenceFlag !== "10",
-                "startingSegment cannot be the last segment");
-            let nextPacket = storage.segmented.getPacket(
-                (startingSegment.primaryHeader.sequenceCount + 1) % (SEQUENCE_COUNT_MAX + 1),
-            )?.packet;
-            const segments = [];
-            while (nextPacket) {
-                segments.push(nextPacket);
-                if (nextPacket.primaryHeader.sequenceFlag === "10") {
-                    // this is the last segment
-                    return segments;
-                }
-                nextPacket = storage.segmented.getPacket(
-                    (nextPacket.primaryHeader.sequenceCount + 1) % (SEQUENCE_COUNT_MAX + 1),
-                )?.packet;
-            }
-            return null;
-        };
-        const getPreviousSegments = (startingSegment) => {
-            // find the first segment of the space packet
-            // startingSegment cannot be the first segment
-            assert(startingSegment.primaryHeader.sequenceFlag !== "01",
-                "startingSegment cannot be the first segment");
-            let prevPacket = storage.segmented.getPacket(
-                (startingSegment.primaryHeader.sequenceCount - 1) % (SEQUENCE_COUNT_MAX + 1),
-            )?.packet;
-            const segments = [];
-            while (prevPacket) {
-                segments.unshift(prevPacket);
-                if (prevPacket.primaryHeader.sequenceFlag === "01") {
-                    // this is the first segment
-                    return segments;
-                }
-                prevPacket = storage.segmented.getPacket(
-                    (prevPacket.primaryHeader.sequenceCount - 1) % (SEQUENCE_COUNT_MAX + 1),
-                )?.packet;
-            }
-            return null;
-        };
         if (spacePacket.primaryHeader.sequenceFlag === "11") {
             // space packet is unsegmented
             return this.assembleSpacePacket([spacePacket], storage);
         } else if (spacePacket.primaryHeader.sequenceFlag === "01") {
             // this is the first segment of a segmented space packet
             storage.segmented.enqueue(spacePacket, spacePacket.primaryHeader.sequenceCount);
-            const nextSegments = getNextSegments(spacePacket);
+            const nextSegments = getNextSegments(spacePacket, storage);
             if (nextSegments !== null) {
                 // we have the last segment, we can assemble the space packet
                 return this.assembleSpacePacket([spacePacket, ...nextSegments], storage);
@@ -239,7 +196,7 @@ export default class SpacePacketIngestor {
         } else if (spacePacket.primaryHeader.sequenceFlag === "10") {
             // this is the last segment of a segmented space packet
             storage.segmented.enqueue(spacePacket, spacePacket.primaryHeader.sequenceCount);
-            const previousSegments = getPreviousSegments(spacePacket);
+            const previousSegments = getPreviousSegments(spacePacket, storage);
             if (previousSegments !== null) {
                 // we have the first segment, we can assemble the space packet
                 return this.assembleSpacePacket([...previousSegments, spacePacket], storage);
@@ -247,8 +204,8 @@ export default class SpacePacketIngestor {
         } else if (spacePacket.primaryHeader.sequenceFlag === "00") {
             // this is a middle segment of a segmented space packet
             storage.segmented.enqueue(spacePacket, spacePacket.primaryHeader.sequenceCount);
-            const prevSegments = getPreviousSegments(spacePacket);
-            const nextSegments = getNextSegments(spacePacket);
+            const prevSegments = getPreviousSegments(spacePacket, storage);
+            const nextSegments = getNextSegments(spacePacket, storage);
             if (prevSegments !== null && nextSegments !== null) {
                 // we have both the first and last segments, we can assemble the space packet
                 return this.assembleSpacePacket(
@@ -260,7 +217,51 @@ export default class SpacePacketIngestor {
     }
 }
 
-function hexToBin(hexArray) {
+const getNextSegments = (startingSegment, storage) => {
+    // find the last segment of the space packet
+    // startingSegment cannot be the last segment
+    assert(startingSegment.primaryHeader.sequenceFlag !== "10",
+        "startingSegment cannot be the last segment");
+    let nextPacket = storage.segmented.getPacket(
+        (startingSegment.primaryHeader.sequenceCount + 1) % (SEQUENCE_COUNT_MAX + 1),
+    )?.packet;
+    const segments = [];
+    while (nextPacket) {
+        segments.push(nextPacket);
+        if (nextPacket.primaryHeader.sequenceFlag === "10") {
+            // this is the last segment
+            return segments;
+        }
+        nextPacket = storage.segmented.getPacket(
+            (nextPacket.primaryHeader.sequenceCount + 1) % (SEQUENCE_COUNT_MAX + 1),
+        )?.packet;
+    }
+    return null;
+};
+
+const getPreviousSegments = (startingSegment, storage) => {
+    // find the first segment of the space packet
+    // startingSegment cannot be the first segment
+    assert(startingSegment.primaryHeader.sequenceFlag !== "01",
+        "startingSegment cannot be the first segment");
+    let prevPacket = storage.segmented.getPacket(
+        (startingSegment.primaryHeader.sequenceCount - 1) % (SEQUENCE_COUNT_MAX + 1),
+    )?.packet;
+    const segments = [];
+    while (prevPacket) {
+        segments.unshift(prevPacket);
+        if (prevPacket.primaryHeader.sequenceFlag === "01") {
+            // this is the first segment
+            return segments;
+        }
+        prevPacket = storage.segmented.getPacket(
+            (prevPacket.primaryHeader.sequenceCount - 1) % (SEQUENCE_COUNT_MAX + 1),
+        )?.packet;
+    }
+    return null;
+};
+
+const hexToBin = (hexArray) => {
     let binaryString = "";
 
     for (let i = 0; i < hexArray.length; i++) {
@@ -270,7 +271,7 @@ function hexToBin(hexArray) {
     }
 
     return binaryString;
-}
+};
 
 const spacePacketFilter = (spacePacketHeaderSlice) => {
     if (!APIDS.includes(spacePacketHeaderSlice.primaryHeader.apid)) return false;
