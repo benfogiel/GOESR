@@ -8,17 +8,23 @@ import {
 
 const {GENERIC_HEADER_LEN} = genericDataConstants;
 
-const calculateProtonFlux = (diffFluxMatrix, energyBands, lowerBound, upperBound) => {
+/**
+ * Calculate the proton flux for the specified energy range
+ * @param {Array} diffFluxMatrix - 2byN matrix, 2 sensors, N energy bands in cm-2 sr-1 s-1 KeV-1
+ * @param {Array} energyBands - Array of energy bands in MeV
+ * @param {Number} lowerBound - Lower bound of energy range in MeV
+ * @param {Number} upperBound - Upper bound of energy range in MeV
+ * @returns {Number} - Proton flux in cm-2 sr-1 s-1
+ */
+const calculateProtonFlux = (diffFluxMatrix, energyBands, lowerBound) => {
     let totalFlux = 0;
 
-    for (let i = 0; i < diffFluxMatrix.length; i++) {
-        for (let j = 0; j < diffFluxMatrix[i].length; j++) {
-            const energyBand = energyBands[j];
-
-            if (energyBand.lower >= lowerBound && energyBand.upper <= upperBound) {
-                const binWidth = energyBand.upper - energyBand.lower;
-                totalFlux += diffFluxMatrix[i][j] * binWidth;
-            }
+    for (let energyIndex = 0; energyIndex < diffFluxMatrix.length; energyIndex++) {
+        const energyBand = energyBands[energyIndex];
+        if (energyBand.lower < lowerBound) continue;
+        for (let sensorIndex = 0; sensorIndex < diffFluxMatrix[energyIndex].length; sensorIndex++) {
+            const binWidth = (energyBand.upper - energyBand.lower)*1000; // keV
+            totalFlux += diffFluxMatrix[energyIndex][sensorIndex] * binWidth;
         }
     }
 
@@ -32,7 +38,7 @@ const parseHeader = (spaceData) => {
 export const parseGenericData = (spaceData) => {
     const length = spaceData.length;
     const header = parseHeader(spaceData.slice(0, GENERIC_HEADER_LEN));
-    const data = spaceData.slice(header.length, spaceData.length);
+    const data = spaceData.slice(header.length);
     return {
         header,
         data,
@@ -43,6 +49,7 @@ export const parseGenericData = (spaceData) => {
 export const getXRay = (xRaySpacePacket) => {
     const parsedData = parseByteFields(xRaySpacePacket.data, xRayDataFields, true);
     // TODO: check quality flags
+    const times = parsedData.sps_obs_time;
     return {
         date: secEpochToDate(xRaySpacePacket.header.secEpoch+xRaySpacePacket.header.microSec*1e-6),
         value: parsedData.irradiance_xrsb1,
@@ -61,9 +68,12 @@ export const getSolarGalacticProton = (solarGalacticProtonPacket) => {
     const integral500flux = parsedData.T3P11_IntegralProtonFlux; // cm-2 sr-1 s-1
 
     // Merge the differential proton flux matrices
+    // const diffFluxMatrix = [
+    //     t1DiffFlux[0].concat(t2DiffFlux[0]).concat(t3DiffFlux[0]),
+    //     t1DiffFlux[1].concat(t2DiffFlux[1]).concat(t3DiffFlux[1]),
+    // ];
     const diffFluxMatrix = [
-        t1DiffFlux[0].concat(t2DiffFlux[0]).concat(t3DiffFlux[0]),
-        t1DiffFlux[1].concat(t2DiffFlux[1]).concat(t3DiffFlux[1]),
+        ...t1DiffFlux, ...t2DiffFlux, ...t3DiffFlux,
     ];
 
     const energyBands = [ // in MeV
@@ -84,13 +94,13 @@ export const getSolarGalacticProton = (solarGalacticProtonPacket) => {
 
     // Calculate proton flux for the specified energy ranges
     const protonFlux10MeV = calculateProtonFlux(
-        diffFluxMatrix, energyBands, 10, Infinity,
+        diffFluxMatrix, energyBands, 10,
     )+integral500flux;
     const protonFlux50MeV = calculateProtonFlux(
-        diffFluxMatrix, energyBands, 50, Infinity,
+        diffFluxMatrix, energyBands, 50,
     )+integral500flux;
     const protonFlux100MeV = calculateProtonFlux(
-        diffFluxMatrix, energyBands, 100, Infinity,
+        diffFluxMatrix, energyBands, 100,
     )+integral500flux;
 
     return {
@@ -98,6 +108,8 @@ export const getSolarGalacticProton = (solarGalacticProtonPacket) => {
             solarGalacticProtonPacket.header.secEpoch
             +solarGalacticProtonPacket.header.microSec*1e-6
         ),
+        sciDate1: secEpochToDate(parsedData.L1a_SciData_TimeStamp[0][0]),
+        sciDate2: secEpochToDate(parsedData.L1a_SciData_TimeStamp[0][1]),
         proton10: protonFlux10MeV,
         proton50: protonFlux50MeV,
         proton100: protonFlux100MeV,

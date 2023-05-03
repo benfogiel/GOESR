@@ -15,7 +15,7 @@ const main = async () => {
 
     server.bind(() => {
         server.setBroadcast(true);
-        server.setMulticastTTL(128);
+        server.setMulticastTTL(32);
     });
 
     server.on('error', (err) => {

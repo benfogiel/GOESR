@@ -90,7 +90,7 @@ export default class SpacePacketIngestor {
             const mpduPacketZone = cadu.aosTransferFrame.dataField.mPduPacketZone;
             const spaceHeaderOffset = parseInt(mpduHeader.firstHeaderPointer, 2) * 8; // number of offset bits
             const spacePacketSlice = parseSpacePacketHeaderSlice(
-                mpduPacketZone.slice(spaceHeaderOffset, mpduPacketZone.length),
+                mpduPacketZone.slice(spaceHeaderOffset),
             );
             if (spacePacketSlice !== null && spacePacketFilter(spacePacketSlice)) {
                 // this is a space packet that we're interested in

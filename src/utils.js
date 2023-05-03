@@ -13,14 +13,32 @@ export const parseBytes = (buffer, byteOffset, size, dataType, littleEndian = tr
     const view = new DataView(slicedBuffer);
 
     const parseFloatMatrix = (rows, cols) => {
+        const floatSize = 4; // bytes
         const matrix = [];
         for (let i = 0; i < rows; i++) {
             const row = [];
             for (let j = 0; j < cols; j++) {
-                const byteOffset = (i * cols + j) * 4;
+                const byteOffset = (i * cols + j) * floatSize;
                 const value = new DataView(
-                    slicedBuffer.slice(byteOffset, byteOffset + 4),
+                    slicedBuffer.slice(byteOffset, byteOffset + floatSize),
                 ).getFloat32(0, littleEndian);
+                row.push(value);
+            }
+            matrix.push(row);
+        }
+        return matrix;
+    };
+
+    const parseDoubleMatrix = (rows, cols) => {
+        const doubleSize = 8; // bytes
+        const matrix = [];
+        for (let i = 0; i < rows; i++) {
+            const row = [];
+            for (let j = 0; j < cols; j++) {
+                const byteOffset = (i * cols + j) * doubleSize;
+                const value = new DataView(
+                    slicedBuffer.slice(byteOffset, byteOffset + doubleSize),
+                ).getFloat64(0, littleEndian);
                 row.push(value);
             }
             matrix.push(row);
@@ -41,18 +59,22 @@ export const parseBytes = (buffer, byteOffset, size, dataType, littleEndian = tr
             return view.getFloat32(0, littleEndian);
         case "float32":
             return view.getFloat32(0, littleEndian);
-        case "float32Mtx5by11":
-            return parseFloatMatrix(5, 11);
-        case "float32Mtx2by6":
-            return parseFloatMatrix(2, 6);
+        case "float32Mtx11by5":
+            return parseFloatMatrix(11, 5);
+        case "float32Mtx6by2":
+            return parseFloatMatrix(6, 2);
         case "float32Mtx2by2":
             return parseFloatMatrix(2, 2);
-        case "float32Mtx2by5":
-            return parseFloatMatrix(2, 5);
+        case "float32Mtx5by2":
+            return parseFloatMatrix(5, 2);
         case "float64":
             return view.getFloat64(0, littleEndian);
         case "double":
             return view.getFloat64(0, littleEndian);
+        case "doubleMtx1by2":
+            return parseDoubleMatrix(1, 2);
+        case "doubleMtx1by4":
+            return parseDoubleMatrix(1, 4);
         default:
             throw new Error(`Unsupported data type: ${dataType}`);
     }

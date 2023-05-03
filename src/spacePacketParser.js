@@ -45,7 +45,7 @@ export const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
         binarySpacePacket.slice(binPointer, binPointer + SECONDARY_HEADER_LEN),
     );
     binPointer += SECONDARY_HEADER_LEN;
-    const userData = binarySpacePacket.slice(binPointer, binarySpacePacket.length);
+    const userData = binarySpacePacket.slice(binPointer);
 
     validateSpacePacketHeaders(primaryHeader, secondaryHeader);
 
@@ -98,7 +98,7 @@ export const appendRemBits = (spacePacket, remBits) => {
 const parseCrc = (spacePacket) => {
     assert(spacePacket.remBits === 0, "remBits is not 0");
     spacePacket.crc = spacePacket.spaceData.slice(
-        spacePacket.spaceData.length - CRC_LEN, spacePacket.spaceData.length,
+        spacePacket.spaceData.length - CRC_LEN
     );
     spacePacket.spaceData = spacePacket.spaceData.slice(
         0, spacePacket.spaceData.length - CRC_LEN,
