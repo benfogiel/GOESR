@@ -8,76 +8,63 @@ export const binaryStringToByteArray = (binaryString) => {
     return byteArray;
 };
 
+const dataTypeSize = {
+    "uint8": 1,
+    "uint16": 2,
+    "uint32": 4,
+    "uint64": 8,
+    "float": 4,
+    "float32": 4,
+    "float64": 8,
+    "double": 8,
+};
+
 export const parseBytes = (buffer, byteOffset, size, dataType, littleEndian = true) => {
+    const typeSize = dataTypeSize[dataType];
+
+    if (!typeSize) {
+        throw new Error(`Unsupported data type: ${dataType}`);
+    }
+
+    if (size < typeSize || (size > typeSize && size % typeSize !== 0)) {
+        throw new Error(`Invalid size for data type ${dataType}: ${size}`);
+    }
+
+    const numElements = size / typeSize;
     const slicedBuffer = buffer.slice(byteOffset, byteOffset + size);
     const view = new DataView(slicedBuffer);
+    const result = [];
 
-    const parseFloatMatrix = (rows, cols) => {
-        const floatSize = 4; // bytes
-        const matrix = [];
-        for (let i = 0; i < rows; i++) {
-            const row = [];
-            for (let j = 0; j < cols; j++) {
-                const byteOffset = (i * cols + j) * floatSize;
-                const value = new DataView(
-                    slicedBuffer.slice(byteOffset, byteOffset + floatSize),
-                ).getFloat32(0, littleEndian);
-                row.push(value);
-            }
-            matrix.push(row);
+    for (let i = 0; i < numElements; i++) {
+        const elementOffset = i * typeSize;
+
+        switch (dataType) {
+            case "uint8":
+                result.push(view.getUint8(elementOffset, littleEndian));
+                break;
+            case "uint16":
+                result.push(view.getUint16(elementOffset, littleEndian));
+                break;
+            case "uint32":
+                result.push(view.getUint32(elementOffset, littleEndian));
+                break;
+            case "uint64":
+                result.push(view.getBigUint64(elementOffset, littleEndian));
+                break;
+            case "float":
+            case "float32":
+                result.push(view.getFloat32(elementOffset, littleEndian));
+                break;
+            case "float64":
+            case "double":
+                result.push(view.getFloat64(elementOffset, littleEndian));
+                break;
+            default:
+                throw new Error(`Unsupported data type: ${dataType}`);
         }
-        return matrix;
-    };
-
-    const parseDoubleMatrix = (rows, cols) => {
-        const doubleSize = 8; // bytes
-        const matrix = [];
-        for (let i = 0; i < rows; i++) {
-            const row = [];
-            for (let j = 0; j < cols; j++) {
-                const byteOffset = (i * cols + j) * doubleSize;
-                const value = new DataView(
-                    slicedBuffer.slice(byteOffset, byteOffset + doubleSize),
-                ).getFloat64(0, littleEndian);
-                row.push(value);
-            }
-            matrix.push(row);
-        }
-        return matrix;
-    };
-
-    switch (dataType) {
-        case "uint8":
-            return view.getUint8(0, littleEndian);
-        case "uint16":
-            return view.getUint16(0, littleEndian);
-        case "uint32":
-            return view.getUint32(0, littleEndian);
-        case "uint64":
-            return view.getBigUint64(0, littleEndian);
-        case "float":
-            return view.getFloat32(0, littleEndian);
-        case "float32":
-            return view.getFloat32(0, littleEndian);
-        case "float32Mtx11by5":
-            return parseFloatMatrix(11, 5);
-        case "float32Mtx6by2":
-            return parseFloatMatrix(6, 2);
-        case "float32Mtx2by2":
-            return parseFloatMatrix(2, 2);
-        case "float32Mtx5by2":
-            return parseFloatMatrix(5, 2);
-        case "float64":
-            return view.getFloat64(0, littleEndian);
-        case "double":
-            return view.getFloat64(0, littleEndian);
-        case "doubleMtx1by2":
-            return parseDoubleMatrix(1, 2);
-        case "doubleMtx1by4":
-            return parseDoubleMatrix(1, 4);
-        default:
-            throw new Error(`Unsupported data type: ${dataType}`);
     }
+
+    return numElements === 1 ? result[0] : result;
 };
 
 export const parseBits = (binaryString, bitOffset, size, dataType) => {
@@ -148,6 +135,24 @@ export const secEpochToDate = (secEpoch) => {
     const j2000Epoch = Date.UTC(2000, 0, 1, 12, 0, 0, 0); // Jan 1, 2000 12:00:00 UTC
     return new Date(j2000Epoch + (secEpoch * 1000));
 };
+
+export const arrayToMatrix = (array, rows, columns) => {
+    if (array.length !== rows * columns) {
+        throw new Error("Invalid dimensions for the given array.");
+    }
+
+    let matrix = [];
+
+    for (let i = 0; i < rows; i++) {
+        let row = [];
+        for (let j = 0; j < columns; j++) {
+            row.push(array[i * columns + j]);
+        }
+        matrix.push(row);
+    }
+
+    return matrix;
+}
 
 export class PacketPriorityQueue {
     constructor(rolloverNum, maxSize) {

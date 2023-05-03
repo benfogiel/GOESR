@@ -1,5 +1,5 @@
 import {genericPayloadFields} from "./constants.js";
-import {parseBitFields, parseByteFields, secEpochToDate} from "./utils.js";
+import {parseBitFields, parseByteFields, secEpochToDate, arrayToMatrix} from "./utils.js";
 import {genericDataConstants} from "./constants.js";
 import {
     xRayDataFields,
@@ -18,13 +18,12 @@ const {GENERIC_HEADER_LEN} = genericDataConstants;
  */
 const calculateProtonFlux = (diffFluxMatrix, energyBands, lowerBound) => {
     let totalFlux = 0;
-
-    for (let energyIndex = 0; energyIndex < diffFluxMatrix.length; energyIndex++) {
-        const energyBand = energyBands[energyIndex];
-        if (energyBand.lower < lowerBound) continue;
-        for (let sensorIndex = 0; sensorIndex < diffFluxMatrix[energyIndex].length; sensorIndex++) {
+    for (let sensorIndex = 0; sensorIndex < diffFluxMatrix.length; sensorIndex++) {
+        for (let energyIndex = 0; energyIndex < diffFluxMatrix[sensorIndex].length; energyIndex++) {
+            const energyBand = energyBands[energyIndex];
+            if (energyBand.lower < lowerBound) continue;
             const binWidth = (energyBand.upper - energyBand.lower)*1000; // keV
-            totalFlux += diffFluxMatrix[energyIndex][sensorIndex] * binWidth;
+            totalFlux += diffFluxMatrix[sensorIndex][energyIndex] * binWidth;
         }
     }
 
@@ -61,19 +60,25 @@ export const getSolarGalacticProton = (solarGalacticProtonPacket) => {
         solarGalacticProtonPacket.data, solarGalacticProtonDataFields, true,
     );
     // TODO: check quality flags
-    const t1DiffFlux = parsedData.T1_DifferentialProtonFluxes; // 2by6 matrix, 2 sensors, 6 energy bands
-    const t2DiffFlux = parsedData.T2_DifferentialProtonFluxes; // 2by2 matrix, 2 sensors, 2 energy bands
-    const t3DiffFlux = parsedData.T3_DifferentialProtonFluxes; // 2by5 matrix, 2 sensors, 5 energy bands
+    const t1DiffFlux = arrayToMatrix(
+        parsedData.T1_DifferentialProtonFluxes,
+        2,6
+    ); // 2 sensors, 6 energy bands
+    const t2DiffFlux = arrayToMatrix(
+        parsedData.T2_DifferentialProtonFluxes,
+        2,2
+    ); // 2 sensors, 2 energy bands
+    const t3DiffFlux = arrayToMatrix(
+        parsedData.T3_DifferentialProtonFluxes,
+        2,5
+    ); // 2 sensors, 5 energy bands
 
-    const integral500flux = parsedData.T3P11_IntegralProtonFlux; // cm-2 sr-1 s-1
+    const integral500flux = parsedData.T3P11_IntegralProtonFlux.reduce((acc, curr) => acc + curr, 0);; // cm-2 sr-1 s-1
 
     // Merge the differential proton flux matrices
-    // const diffFluxMatrix = [
-    //     t1DiffFlux[0].concat(t2DiffFlux[0]).concat(t3DiffFlux[0]),
-    //     t1DiffFlux[1].concat(t2DiffFlux[1]).concat(t3DiffFlux[1]),
-    // ];
     const diffFluxMatrix = [
-        ...t1DiffFlux, ...t2DiffFlux, ...t3DiffFlux,
+        t1DiffFlux[0].concat(t2DiffFlux[0]).concat(t3DiffFlux[0]),
+        t1DiffFlux[1].concat(t2DiffFlux[1]).concat(t3DiffFlux[1]),
     ];
 
     const energyBands = [ // in MeV
