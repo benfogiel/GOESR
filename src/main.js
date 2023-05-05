@@ -2,7 +2,7 @@ import {readHexFile} from './pcapParser.js';
 import SpacePacketIngestor from './ingestor.js';
 
 const main = async () => {
-    const hexPackets = await readHexFile('packets.csv')
+    const hexPackets = await readHexFile('packets_large.csv')
         .catch((err) => {
             console.log(err);
             return;

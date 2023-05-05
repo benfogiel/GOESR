@@ -38,14 +38,14 @@ const validateSpacePacketHeaders = (primaryHeader, secondaryHeader) => {
 
 export const parseSpacePacketHeaderSlice = (binarySpacePacket) => {
     const binary = binarySpacePacket;
-    let binPointer = 0;
+    let bitPointer = 0;
     const primaryHeader = parsePrimaryHeader(binarySpacePacket.slice(0, PRIMARY_HEADER_LEN));
-    binPointer += PRIMARY_HEADER_LEN;
+    bitPointer += PRIMARY_HEADER_LEN;
     const secondaryHeader = parseSecondaryHeader(
-        binarySpacePacket.slice(binPointer, binPointer + SECONDARY_HEADER_LEN),
+        binarySpacePacket.slice(bitPointer, bitPointer + SECONDARY_HEADER_LEN),
     );
-    binPointer += SECONDARY_HEADER_LEN;
-    const userData = binarySpacePacket.slice(binPointer);
+    bitPointer += SECONDARY_HEADER_LEN;
+    const userData = binarySpacePacket.slice(bitPointer);
 
     validateSpacePacketHeaders(primaryHeader, secondaryHeader);
 

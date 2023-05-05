@@ -8,18 +8,16 @@ export const binaryStringToByteArray = (binaryString) => {
     return byteArray;
 };
 
-const dataTypeSize = {
-    "uint8": 1,
-    "uint16": 2,
-    "uint32": 4,
-    "uint64": 8,
-    "float": 4,
-    "float32": 4,
-    "float64": 8,
-    "double": 8,
-};
-
 export const parseBytes = (buffer, byteOffset, size, dataType, littleEndian = true) => {
+    const dataTypeSize = {
+        "uint8": 1, // bytes
+        "uint16": 2,
+        "uint32": 4,
+        "uint64": 8,
+        "float32": 4,
+        "float64": 8,
+    };
+
     const typeSize = dataTypeSize[dataType];
 
     if (!typeSize) {
@@ -51,12 +49,10 @@ export const parseBytes = (buffer, byteOffset, size, dataType, littleEndian = tr
             case "uint64":
                 result.push(view.getBigUint64(elementOffset, littleEndian));
                 break;
-            case "float":
             case "float32":
                 result.push(view.getFloat32(elementOffset, littleEndian));
                 break;
             case "float64":
-            case "double":
                 result.push(view.getFloat64(elementOffset, littleEndian));
                 break;
             default:

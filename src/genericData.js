@@ -21,7 +21,7 @@ const calculateProtonFlux = (diffFluxMatrix, energyBands, lowerBound) => {
     for (let sensorIndex = 0; sensorIndex < diffFluxMatrix.length; sensorIndex++) {
         for (let energyIndex = 0; energyIndex < diffFluxMatrix[sensorIndex].length; energyIndex++) {
             const energyBand = energyBands[energyIndex];
-            if (energyBand.lower < lowerBound) continue;
+            if (lowerBound > energyBand.upper) continue;
             const binWidth = (energyBand.upper - energyBand.lower)*1000; // keV
             totalFlux += diffFluxMatrix[sensorIndex][energyIndex] * binWidth;
         }
@@ -37,9 +37,11 @@ const parseHeader = (spaceData) => {
 export const parseGenericData = (spaceData) => {
     const length = spaceData.length;
     const header = parseHeader(spaceData.slice(0, GENERIC_HEADER_LEN));
+    const headerBits = spaceData.slice(0, GENERIC_HEADER_LEN)
     const data = spaceData.slice(header.length);
     return {
         header,
+        headerBits,
         data,
         length,
     };
@@ -52,12 +54,15 @@ export const getXRay = (xRaySpacePacket) => {
     return {
         date: secEpochToDate(xRaySpacePacket.header.secEpoch+xRaySpacePacket.header.microSec*1e-6),
         value: parsedData.irradiance_xrsb1,
+        data: parsedData,
     };
 };
 
-export const getSolarGalacticProton = (solarGalacticProtonPacket) => {
+export const getSolarGalacticProton = (sgpPacket) => {
     const parsedData = parseByteFields(
-        solarGalacticProtonPacket.data, solarGalacticProtonDataFields, true,
+        // sgpPacket.headerBits.slice(sgpPacket.headerBits.length-64)+
+        sgpPacket.data, // FIXME: not sure why the data is offset by 64 bits
+        solarGalacticProtonDataFields, true,
     );
     // TODO: check quality flags
     const t1DiffFlux = arrayToMatrix(
@@ -76,10 +81,14 @@ export const getSolarGalacticProton = (solarGalacticProtonPacket) => {
     const integral500flux = parsedData.T3P11_IntegralProtonFlux.reduce((acc, curr) => acc + curr, 0);; // cm-2 sr-1 s-1
 
     // Merge the differential proton flux matrices
-    const diffFluxMatrix = [
-        t1DiffFlux[0].concat(t2DiffFlux[0]).concat(t3DiffFlux[0]),
-        t1DiffFlux[1].concat(t2DiffFlux[1]).concat(t3DiffFlux[1]),
-    ];
+    function transposeMatrix(matrix) {
+        return matrix[0].map((col, i) => matrix.map(row => row[i]));
+    }
+    const diffFluxMatrix = transposeMatrix([
+        [...t1DiffFlux[0], ...t2DiffFlux[0], ...t3DiffFlux[0]],
+        [...t1DiffFlux[1], ...t2DiffFlux[1], ...t3DiffFlux[1]],
+    ]);
+    // const diffFluxMatrix = [...t1DiffFlux, ...t2DiffFlux, ...t3DiffFlux];
 
     const energyBands = [ // in MeV
         {lower: 1, upper: 1.9},
@@ -110,13 +119,14 @@ export const getSolarGalacticProton = (solarGalacticProtonPacket) => {
 
     return {
         date: secEpochToDate(
-            solarGalacticProtonPacket.header.secEpoch
-            +solarGalacticProtonPacket.header.microSec*1e-6
+            sgpPacket.header.secEpoch
+            +sgpPacket.header.microSec*1e-6
         ),
         sciDate1: secEpochToDate(parsedData.L1a_SciData_TimeStamp[0][0]),
         sciDate2: secEpochToDate(parsedData.L1a_SciData_TimeStamp[0][1]),
         proton10: protonFlux10MeV,
         proton50: protonFlux50MeV,
         proton100: protonFlux100MeV,
+        data: parsedData, 
     };
 };
