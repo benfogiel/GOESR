@@ -1,5 +1,5 @@
 import {genericPayloadFields} from "./constants.js";
-import {parseBitFields, parseByteFields, secEpochToDate, arrayToMatrix} from "./utils.js";
+import {parseBitFields, parseByteFields, secEpochToDate} from "./utils.js";
 import {genericDataConstants} from "./constants.js";
 import {
     xRayDataFields,
@@ -7,28 +7,6 @@ import {
 } from "./constants.js";
 
 const {GENERIC_HEADER_LEN} = genericDataConstants;
-
-/**
- * Calculate the proton flux for the specified energy range
- * @param {Array} diffFluxMatrix - 2byN matrix, 2 sensors, N energy bands in cm-2 sr-1 s-1 KeV-1
- * @param {Array} energyBands - Array of energy bands in MeV
- * @param {Number} lowerBound - Lower bound of energy range in MeV
- * @param {Number} upperBound - Upper bound of energy range in MeV
- * @returns {Number} - Proton flux in cm-2 sr-1 s-1
- */
-const calculateProtonFlux = (diffFluxMatrix, energyBands, lowerBound) => {
-    let totalFlux = 0;
-    for (let sensorIndex = 0; sensorIndex < diffFluxMatrix.length; sensorIndex++) {
-        for (let energyIndex = 0; energyIndex < diffFluxMatrix[sensorIndex].length; energyIndex++) {
-            const energyBand = energyBands[energyIndex];
-            if (lowerBound > energyBand.upper) continue;
-            const binWidth = (energyBand.upper - energyBand.lower)*1000; // keV
-            totalFlux += diffFluxMatrix[sensorIndex][energyIndex] * binWidth;
-        }
-    }
-
-    return totalFlux;
-};
 
 const parseHeader = (spaceData) => {
     return parseBitFields(spaceData, genericPayloadFields);
@@ -47,48 +25,30 @@ export const parseGenericData = (spaceData) => {
     };
 };
 
+/** 
+ * Returns xRay irradiance in W/m^2 of wavelength 0.1-0.8 nm
+ * @param {Object} xRaySpacePacket - xRay space packet
+ * @return {Object} - irradiance_xrsb data
+ */
 export const getXRay = (xRaySpacePacket) => {
     const parsedData = parseByteFields(xRaySpacePacket.data, xRayDataFields, true);
-    // TODO: check quality flags
-    const times = parsedData.sps_obs_time;
+    let irradiance_xrsb = parsedData.primary_xrsb === 0 ? parsedData.irradiance_xrsb1 : parsedData.irradiance_xrsb2;
+
     return {
-        date: secEpochToDate(xRaySpacePacket.header.secEpoch+xRaySpacePacket.header.microSec*1e-6),
-        value: parsedData.irradiance_xrsb1,
-        data: parsedData,
+        packageTimeStamp: secEpochToDate(xRaySpacePacket.header.secEpoch+xRaySpacePacket.header.microSec*1e-6),
+        time: secEpochToDate(parsedData.time),
+        irradiance_xrsb: irradiance_xrsb,
+        invalid_flags: parsedData.invalid_flags,
+        quality_flags: parsedData.quality_flags,
     };
 };
 
+/** 
+ * Returns solar galactic proton data within each energy band
+ * @param {Object} sgpPacket - solar galactic proton data packet
+ * @return {Object} - solar galactic proton data
+ */
 export const getSolarGalacticProton = (sgpPacket) => {
-    const parsedData = parseByteFields(
-        // sgpPacket.headerBits.slice(sgpPacket.headerBits.length-64)+
-        sgpPacket.data, // FIXME: not sure why the data is offset by 64 bits
-        solarGalacticProtonDataFields, true,
-    );
-    // TODO: check quality flags
-    const t1DiffFlux = arrayToMatrix(
-        parsedData.T1_DifferentialProtonFluxes,
-        2,6
-    ); // 2 sensors, 6 energy bands
-    const t2DiffFlux = arrayToMatrix(
-        parsedData.T2_DifferentialProtonFluxes,
-        2,2
-    ); // 2 sensors, 2 energy bands
-    const t3DiffFlux = arrayToMatrix(
-        parsedData.T3_DifferentialProtonFluxes,
-        2,5
-    ); // 2 sensors, 5 energy bands
-
-    const integral500flux = parsedData.T3P11_IntegralProtonFlux.reduce((acc, curr) => acc + curr, 0);; // cm-2 sr-1 s-1
-
-    // Merge the differential proton flux matrices
-    function transposeMatrix(matrix) {
-        return matrix[0].map((col, i) => matrix.map(row => row[i]));
-    }
-    const diffFluxMatrix = transposeMatrix([
-        [...t1DiffFlux[0], ...t2DiffFlux[0], ...t3DiffFlux[0]],
-        [...t1DiffFlux[1], ...t2DiffFlux[1], ...t3DiffFlux[1]],
-    ]);
-    // const diffFluxMatrix = [...t1DiffFlux, ...t2DiffFlux, ...t3DiffFlux];
 
     const energyBands = [ // in MeV
         {lower: 1, upper: 1.9},
@@ -106,27 +66,61 @@ export const getSolarGalacticProton = (sgpPacket) => {
         {lower: 275, upper: 500},
     ];
 
-    // Calculate proton flux for the specified energy ranges
-    const protonFlux10MeV = calculateProtonFlux(
-        diffFluxMatrix, energyBands, 10,
-    )+integral500flux;
-    const protonFlux50MeV = calculateProtonFlux(
-        diffFluxMatrix, energyBands, 50,
-    )+integral500flux;
-    const protonFlux100MeV = calculateProtonFlux(
-        diffFluxMatrix, energyBands, 100,
-    )+integral500flux;
+    const parsedData = parseByteFields(
+        // sgpPacket.headerBits.slice(sgpPacket.headerBits.length-64)+
+        sgpPacket.data, // FIXME: not sure why the data is offset by 64 bits
+        solarGalacticProtonDataFields, true,
+    );
+
+    const diffProtonFluxes = parsedData.T1_DifferentialProtonFluxes.concat(
+        parsedData.T2_DifferentialProtonFluxes,
+        parsedData.T3_DifferentialProtonFluxes,
+    );
+    const diffProtonFluxUncs = parsedData.T1_DifferentialProtonFluxUncertainties.concat(
+        parsedData.T2_DifferentialProtonFluxUncertainties,
+        parsedData.T3_DifferentialProtonFluxUncertainties,
+    );
+    const qualityFlags = parsedData.T1_DifferentialProtonFluxDQFs.concat(
+        parsedData.T2_DifferentialProtonFluxDQFs,
+        parsedData.T3_DifferentialProtonFluxDQFs,
+    );
+
+    const integral500Fluxes = parsedData.T3P11_IntegralProtonFlux; // cm-2 sr-1 s-1
+    const integral500FluxUncs = parsedData.T3_DifferentialProtonFluxUncertainties; // cm-2 sr-1 s-1
+    const integral500QualityFlags = parsedData.T3P11_IntegralProtonFluxDQFs;
+
+    const protonData = [];
+    let energyIndex = 0;
+    for (let i = 0; i < diffProtonFluxes.length; i++) {
+        const energyBand = energyBands[energyIndex];
+        const binWidth = (energyBand.upper - energyBand.lower)*1000; // keV
+        if ( (i+1) % 2 === 0 ) energyIndex++;
+        protonData.push({
+            energyBand: energyBand,
+            sensor: ((i+1) % 2)+1,
+            flux: diffProtonFluxes[i] * binWidth,
+            fluxUnc: diffProtonFluxUncs[i] * binWidth,
+            qualityFlag: qualityFlags[i],
+        });
+    }
+    // add the 500 integral fluxes
+    for (let i = 0; i < integral500Fluxes.length; i++) {
+        protonData.push({
+            energyBand: {lower: 500, upper: Infinity},
+            sensor: i+1,
+            flux: integral500Fluxes[i],
+            fluxUnc: integral500FluxUncs[i],
+            qualityFlag: integral500QualityFlags[i],
+        });
+    }
 
     return {
-        date: secEpochToDate(
+        packageTimeStamp: secEpochToDate(
             sgpPacket.header.secEpoch
-            +sgpPacket.header.microSec*1e-6
+            + sgpPacket.header.microSec*1e-6
         ),
-        sciDate1: secEpochToDate(parsedData.L1a_SciData_TimeStamp[0][0]),
-        sciDate2: secEpochToDate(parsedData.L1a_SciData_TimeStamp[0][1]),
-        proton10: protonFlux10MeV,
-        proton50: protonFlux50MeV,
-        proton100: protonFlux100MeV,
-        data: parsedData, 
+        sciSen1TimeStamp: secEpochToDate(parsedData.L1a_SciData_TimeStamp[0]),
+        sciSen2TimeStamp: secEpochToDate(parsedData.L1a_SciData_TimeStamp[1]),
+        protonData: protonData
     };
 };

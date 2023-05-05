@@ -132,24 +132,6 @@ export const secEpochToDate = (secEpoch) => {
     return new Date(j2000Epoch + (secEpoch * 1000));
 };
 
-export const arrayToMatrix = (array, rows, columns) => {
-    if (array.length !== rows * columns) {
-        throw new Error("Invalid dimensions for the given array.");
-    }
-
-    let matrix = [];
-
-    for (let i = 0; i < rows; i++) {
-        let row = [];
-        for (let j = 0; j < columns; j++) {
-            row.push(array[i * columns + j]);
-        }
-        matrix.push(row);
-    }
-
-    return matrix;
-}
-
 export class PacketPriorityQueue {
     constructor(rolloverNum, maxSize) {
         this.queue = [];

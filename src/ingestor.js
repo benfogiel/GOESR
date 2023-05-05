@@ -167,7 +167,9 @@ export default class SpacePacketIngestor {
             default:
                 throw new Error("APID is not valid");
         }
-        storage.complete.push(processedData);
+        if (processedData !== null) {
+            storage.complete.push(processedData);
+        }
     }
 
     recordSpacePacket(spacePacket) {
