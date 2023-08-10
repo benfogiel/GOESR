@@ -4,19 +4,14 @@ import {readHexFile} from './pcapParser.js';
 const main = async () => {
 
     const server = dgram.createSocket('udp4');
-    const multicastAddress = '239.24.75.80'; // Replace with the multicast address you used in the client
-    const multicastPort = 50020; // Replace with the port you used in the client
+    // const multicastAddress = '239.24.75.80'; // Replace with the multicast address you used in the client
+    const port = 50020; // Replace with the port you used in the client
 
     const hexPackets = await readHexFile('packets_large.csv')
         .catch((err) => {
             console.log(err);
             return;
         });
-
-    server.bind(() => {
-        server.setBroadcast(true);
-        server.setMulticastTTL(32);
-    });
 
     server.on('error', (err) => {
         console.log(`Error: ${err.stack}`);
@@ -27,7 +22,7 @@ const main = async () => {
         const packet = hexPackets[i];
 
         const buffer = Buffer.from(packet.join(''), 'hex');
-        server.send(buffer, 0, buffer.length, multicastPort, multicastAddress, (err) => {
+        server.send(buffer, 0, buffer.length, port, (err) => {
             if (err) {
             console.error('Error sending message:', err);
             } else {
